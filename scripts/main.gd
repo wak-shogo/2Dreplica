@@ -85,64 +85,29 @@ func _setup_game_systems() -> void:
 	add_child(sector_map)
 
 func _setup_celestial_bodies() -> void:
-	# 1. 中心惑星 Terra-01（画像3完全再現）
-	primary_planet = CelestialBody.new()
-	primary_planet.body_name = "Terra-01"
-	primary_planet.body_type = CelestialBody.BodyType.PLANET
-	primary_planet.base_radius = 460.0
-	primary_planet.core_radius = 160.0
-	primary_planet.atmosphere_radius = 580.0
-	primary_planet.position = Vector2(0, 0)
-	add_child(primary_planet)
-
-	# 2. 月 Luna-01（画像4左側完全再現）
-	moon_body = CelestialBody.new()
-	moon_body.body_name = "Luna-01"
-	moon_body.body_type = CelestialBody.BodyType.MOON
-	moon_body.base_radius = 260.0
-	moon_body.core_radius = 90.0
-	moon_body.atmosphere_radius = 260.0
-	moon_body.position = Vector2(1450.0, -930.0)
-	add_child(moon_body)
-
-	# 3. アステロイド要塞（画像4右側完全再現）
-	asteroid_fortress = AsteroidFortress.new()
-	asteroid_fortress.core_pos = Vector2(2650.0, -930.0)
-	add_child(asteroid_fortress)
+	pass
 
 func _setup_player_and_camera() -> void:
-	orbit_predictor = OrbitPredictor.new()
-	add_child(orbit_predictor)
-
-	player = Player.new()
-	player.current_planet = primary_planet
-	player.setup(game_state, orbit_predictor)
-	add_child(player)
-
 	camera = Camera2D.new()
-	camera.position_smoothing_enabled = true
-	camera.position_smoothing_speed = 7.0
+	camera.position = Vector2(640.0, 360.0)
+	camera.zoom = Vector2(1.0, 1.0)
 	add_child(camera)
 
 func _setup_ui() -> void:
-	# レイヤー0：高品位ビュー（画像1, 3, 4）
-	var view_layer := CanvasLayer.new()
-	view_layer.layer = 0
-	add_child(view_layer)
-
+	# 単一画面・直接ノード構成（CanvasLayer分割を完全廃止し、2画面分離バグを根絶）
 	factory_view = FactoryView.new()
 	factory_view.setup(game_state)
-	view_layer.add_child(factory_view)
+	add_child(factory_view)
 
 	planet_view = PlanetView.new()
 	planet_view.setup(game_state)
 	planet_view.visible = false
-	view_layer.add_child(planet_view)
+	add_child(planet_view)
 
 	asteroid_view = AsteroidView.new()
 	asteroid_view.setup(game_state)
 	asteroid_view.visible = false
-	view_layer.add_child(asteroid_view)
+	add_child(asteroid_view)
 
 	# レイヤー1：HUD表示（四隅HUD・下部中央ガイドバー）
 	var hud_layer := CanvasLayer.new()
@@ -165,9 +130,6 @@ func _setup_ui() -> void:
 	# 文字重複防止の連携
 	hud_system.tech_tree_screen = tech_tree_screen
 
-	if not is_auto_test_mode:
-		hud_system.show_toast("--- PROJECT: VON NEUMANN INITIALIZED ---", 4.0)
-
 func _process(delta: float) -> void:
 	if is_auto_test_mode:
 		_process_auto_test(delta)
@@ -175,7 +137,6 @@ func _process(delta: float) -> void:
 		_handle_input(delta)
 		
 	_handle_camera(delta)
-	queue_redraw()
 
 func _handle_input(_delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_U):
@@ -202,19 +163,9 @@ func _handle_input(_delta: float) -> void:
 		target_zoom = maxf(min_zoom, target_zoom * 0.95)
 
 func _handle_camera(delta: float) -> void:
-	if is_auto_test_mode:
-		camera.global_position = camera_target_pos
-		camera.zoom = Vector2(target_zoom, target_zoom)
-		return
-
-	current_zoom = lerpf(current_zoom, target_zoom, delta * 6.0)
-	camera.zoom = Vector2(current_zoom, current_zoom)
-
-	if camera_target_pos != Vector2.ZERO:
-		camera.global_position = camera.global_position.lerp(camera_target_pos, delta * 6.0)
-	else:
-		if player != null:
-			camera.global_position = player.global_position
+	if camera != null:
+		camera.global_position = Vector2(640.0, 360.0)
+		camera.zoom = camera.zoom.lerp(Vector2(target_zoom, target_zoom), delta * 8.0)
 
 func _jump_phase(phase: int) -> void:
 	game_state.set_phase(phase)
@@ -305,42 +256,4 @@ func _capture_screenshot(filename: String) -> void:
 		img.save_png(save_path)
 		print("[TEST] Saved: ", save_path)
 
-func _draw() -> void:
-	# 1. 漆黒〜濃紺〜紫の宇宙背景グラデーション
-	draw_rect(Rect2(-7000, -7000, 14000, 14000), Color(0.03, 0.04, 0.07, 1.0))
 
-	# 2. 幻想的な星雲ネビュラ塊
-	for neb in nebulae:
-		draw_circle(neb["pos"], neb["radius"], neb["col"])
-
-	# 3. 大小無数の輝く星々
-	for st in stars:
-		draw_circle(st["pos"], st["size"], st["col"])
-
-	# 4. Phase 4（小惑星要塞宙域）でのシアン色の方眼戦術グリッド（画像4完全再現）
-	if camera.global_position.distance_to(Vector2(2050.0, -930.0)) < 1500.0:
-		_draw_tactical_grid()
-
-	# 5. 画像3の右側にある連星（燦然と輝く大小2つの黄色い太陽）
-	var sun1_pos := Vector2(490.0, -170.0)
-	var sun2_pos := Vector2(520.0, 95.0)
-	# 大太陽
-	draw_circle(sun1_pos, 42.0, Color(1.0, 0.7, 0.1, 0.25))
-	draw_circle(sun1_pos, 32.0, Color(1.0, 0.88, 0.35, 0.95))
-	draw_circle(sun1_pos, 22.0, Color(1.0, 0.98, 0.8, 1.0))
-	# 小太陽
-	draw_circle(sun2_pos, 24.0, Color(1.0, 0.7, 0.1, 0.25))
-	draw_circle(sun2_pos, 18.0, Color(1.0, 0.85, 0.35, 0.95))
-	draw_circle(sun2_pos, 12.0, Color(1.0, 0.98, 0.8, 1.0))
-
-func _draw_tactical_grid() -> void:
-	var gx_min := 1000
-	var gx_max := 3100
-	var gy_min := -1800
-	var gy_max := 0
-	var grid_step := 90
-	var grid_col := Color(0.12, 0.45, 0.6, 0.22)
-	for x in range(gx_min, gx_max + 1, grid_step):
-		draw_line(Vector2(x, gy_min), Vector2(x, gy_max), grid_col, 1.0)
-	for y in range(gy_min, gy_max + 1, grid_step):
-		draw_line(Vector2(gx_min, y), Vector2(gx_max, y), grid_col, 1.0)

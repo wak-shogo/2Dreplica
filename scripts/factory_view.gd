@@ -6,7 +6,7 @@ var game_state: GameState = null
 var backdrop_tex: Texture2D = null
 
 # 自機プローブ（Phase 1 プレイヤー操作）
-var probe_pos: Vector2 = Vector2(480.0, 275.0)
+var probe_pos: Vector2 = Vector2(380.0, 240.0)
 var probe_vel: Vector2 = Vector2.ZERO
 var is_thrusting: bool = false
 var is_mining: bool = false
@@ -133,24 +133,29 @@ func _update_physics(delta: float) -> void:
 
 func _update_vfx(delta: float) -> void:
 	furnace_timer += delta
-	if furnace_timer >= 0.08:
+	if furnace_timer >= 0.05:
 		furnace_timer = 0.0
-		var chimneys := [Vector2(775.0, 195.0), Vector2(875.0, 195.0), Vector2(745.0, 545.0)]
+		var chimneys := [
+			Vector2(775.0, 195.0), # 地上溶鉱炉1
+			Vector2(855.0, 195.0), # 地上溶鉱炉2
+			Vector2(695.0, 560.0), # 地下溶鉱炉1
+			Vector2(765.0, 560.0)  # 地下溶鉱炉2
+		]
 		for ch in chimneys:
 			smoke_particles.append({
 				"pos": ch + Vector2(randf_range(-4, 4), 0),
-				"vel": Vector2(randf_range(-6, 12), randf_range(-35, -60)),
-				"radius": randf_range(4.0, 7.0),
-				"max_radius": randf_range(16.0, 26.0),
-				"col": Color(0.25, 0.26, 0.3, 0.65),
-				"life": 1.4, "max_life": 1.4
+				"vel": Vector2(randf_range(-8, 14), randf_range(-35, -65)),
+				"radius": randf_range(4.5, 7.5),
+				"max_radius": randf_range(18.0, 28.0),
+				"col": Color(randf_range(0.35, 0.45), randf_range(0.28, 0.35), 0.3, 0.6),
+				"life": 1.7, "max_life": 1.7
 			})
-			if randf() > 0.6:
+			if randf() > 0.5:
 				sparks.append({
-					"pos": ch + Vector2(randf_range(-2, 2), 0),
-					"vel": Vector2(randf_range(-12, 16), randf_range(-45, -75)),
-					"col": Color(1.0, randf_range(0.4, 0.7), 0.1, 0.9),
-					"life": 0.8, "max_life": 0.8, "size": randf_range(1.5, 3.0)
+					"pos": ch + Vector2(randf_range(-3, 3), 0),
+					"vel": Vector2(randf_range(-16, 20), randf_range(-45, -80)),
+					"col": Color(1.0, randf_range(0.45, 0.8), 0.15, 0.95),
+					"life": 0.9, "max_life": 0.9, "size": randf_range(1.5, 3.2)
 				})
 
 	printer_spark_timer += delta
@@ -169,7 +174,14 @@ func _update_vfx(delta: float) -> void:
 	for sp in sparks:
 		sp["life"] -= delta
 		if sp["life"] > 0.0:
+			sp["vel"].y += 180.0 * delta # 2D微小重力加速度
 			sp["pos"] += sp["vel"] * delta
+			# 地面接触時の微小バウンス減衰（2D物理採掘サバイバルの手触り向上）
+			var ground_limit := 285.0 if sp["pos"].y < 350.0 else 510.0
+			if sp["pos"].y > ground_limit and sp["vel"].y > 0.0:
+				sp["pos"].y = ground_limit
+				sp["vel"].y = -sp["vel"].y * 0.4
+				sp["vel"].x *= 0.6
 			keep_sparks.append(sp)
 	sparks = keep_sparks
 
@@ -225,12 +237,8 @@ func _draw() -> void:
 		draw_line(nz - Vector2(25, 0), nz + Vector2(25, 0), Color(1.0, 0.85, 0.4, 0.45), 2.0)
 		draw_circle(nz, 4.0, Color(1.0, 0.95, 0.8, 0.85))
 
-	# 4. 溶鉱炉の動的熱波発光
-	var furnace_doors := [Vector2(775.0, 290.0), Vector2(875.0, 290.0), Vector2(745.0, 605.0)]
-	var flicker := 0.85 + sin(Time.get_ticks_msec() * 0.015) * 0.15
-	for fd in furnace_doors:
-		draw_circle(fd, 18.0 * flicker, Color(1.0, 0.45, 0.1, 0.25))
-		draw_circle(fd, 10.0 * flicker, Color(1.0, 0.8, 0.2, 0.55))
+	# 4. 溶鉱炉の熱波光彩（背景の美麗ピクセルアート火炎を阻害する不自然な円形描画を撤廃）
+	# （煙と火の粉パーティクルのみを自然に放出）
 
 	# 5. 飛翔中の鉱石塊
 	for ore in flying_ores:
@@ -246,22 +254,78 @@ func _draw() -> void:
 		c.a = alpha
 		draw_circle(sp["pos"], sp["size"], c)
 
-	# 7. 採掘レーザー光線
+	# 6.5. 巨大3Dプリンターのピンポイント加工レーザー（芯の白い極細ラインで照射感を強調）
+	var pr_pulse := 0.85 + sin(Time.get_ticks_msec() * 0.015) * 0.15
+	var p1_nozzle := Vector2(270.0, 222.0)
+	var p1_target := Vector2(270.0, 298.0)
+	draw_line(p1_nozzle, p1_target, Color(1.0, 0.35, 0.65, 0.35 * pr_pulse), 3.5)
+	draw_line(p1_nozzle, p1_target, Color(1.0, 0.75, 0.85, 0.8 * pr_pulse), 1.8)
+	draw_line(p1_nozzle, p1_target, Color(1.0, 1.0, 1.0, 0.98), 1.0)
+	draw_circle(p1_target, 7.0 * pr_pulse, Color(1.0, 0.4, 0.6, 0.5))
+	draw_circle(p1_target, 2.5, Color(1.0, 1.0, 1.0, 1.0))
+
+	var p2_nozzle := Vector2(446.0, 218.0)
+	var p2_target := Vector2(446.0, 292.0)
+	draw_line(p2_nozzle, p2_target, Color(1.0, 0.65, 0.15, 0.35 * pr_pulse), 3.5)
+	draw_line(p2_nozzle, p2_target, Color(1.0, 0.9, 0.45, 0.8 * pr_pulse), 1.8)
+	draw_line(p2_nozzle, p2_target, Color(1.0, 1.0, 1.0, 0.98), 1.0)
+	draw_circle(p2_target, 7.0 * pr_pulse, Color(1.0, 0.75, 0.2, 0.5))
+	draw_circle(p2_target, 2.5, Color(1.0, 1.0, 1.0, 1.0))
+
+	# 7. 採掘レーザー光線＆溶融岩石スパーク
 	if is_mining:
 		draw_line(probe_pos, mining_target, Color(0.2, 0.8, 1.0, 0.4), 6.0)
 		draw_line(probe_pos, mining_target, Color(0.5, 0.95, 1.0, 0.9), 2.5)
 		draw_line(probe_pos, mining_target, Color(1.0, 1.0, 1.0, 1.0), 1.0)
-		draw_circle(mining_target, 8.0, Color(0.4, 0.9, 1.0, 0.7))
-		draw_circle(mining_target, 4.0, Color(1.0, 1.0, 1.0, 1.0))
+		# 採掘着弾部の白熱光輪と溶融クレーター
+		draw_circle(mining_target, 12.0, Color(1.0, 0.6, 0.1, 0.35))
+		draw_circle(mining_target, 7.0, Color(1.0, 0.85, 0.3, 0.7))
+		draw_circle(mining_target, 3.5, Color(1.0, 1.0, 1.0, 1.0))
 
-	# 8. プレイヤー自己複製機プローブ本体（精緻なピクセルアートSF機体）
-	var draw_p := probe_pos + Vector2(0, sin(hover_bob) * 2.5)
+	# 8. 機体接地シャドウ＆環境光（地上・地下洞窟の両対応ドロップシャドウ）
+	var terrain_surface_y := 278.0 + pow((probe_pos.x - 640.0) / 450.0, 2.0) * 35.0
+	var cave_floor_y := 505.0
+	var shadow_y := terrain_surface_y if probe_pos.y < 350.0 else cave_floor_y
+	var shadow_dist := clampf(absf(shadow_y - probe_pos.y), 8.0, 140.0)
+	var shadow_scale := clampf(1.0 - (shadow_dist / 150.0), 0.25, 1.0)
+	var shadow_w := 26.0 * shadow_scale
+	var shadow_h := 8.5 * shadow_scale
+	draw_set_transform(Vector2(probe_pos.x, shadow_y), 0.0, Vector2(shadow_w / 16.0, shadow_h / 16.0))
+	draw_circle(Vector2.ZERO, 16.0, Color(0.01, 0.02, 0.05, 0.75 * shadow_scale))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	# 8.5. プレイヤー自己複製機プローブ（精緻なピクセルアートSF機体＋探照灯＋常時アンビエント発光）
+	var draw_p: Vector2 = probe_pos + Vector2(0, sin(hover_bob) * 2.5)
+
+	# 微小探照灯（地下洞窟暗所を照らすヘッドライト光円錐）
+	var to_aim := mining_target - draw_p
+	var aim_dir: Vector2 = to_aim.normalized() if to_aim.length() > 5.0 else Vector2.RIGHT
+	var perp := Vector2(-aim_dir.y, aim_dir.x)
+	for cone_layer in range(3):
+		var factor := 1.0 - float(cone_layer) * 0.28
+		var cone_len := 75.0 * factor
+		var cone_spread := 28.0 * factor
+		var cone_alpha := 0.05 + float(cone_layer) * 0.03
+		var cone_pts: PackedVector2Array = [
+			draw_p + aim_dir * 4.0,
+			draw_p + aim_dir * cone_len + perp * cone_spread,
+			draw_p + aim_dir * (cone_len + 10.0),
+			draw_p + aim_dir * cone_len - perp * cone_spread
+		]
+		draw_colored_polygon(cone_pts, Color(0.4, 0.85, 1.0, cone_alpha))
+
+	# 9. プローブ本体の多層グラデーション環境光（暗闇での高視認性パルスグロー）
+	var probe_pulse := 1.0 + sin(Time.get_ticks_msec() * 0.008) * 0.15
+	for r_step in range(6):
+		var r_rad := (14.0 + r_step * 8.0) * probe_pulse
+		var r_alpha := (1.0 - float(r_step) / 6.0) * 0.045
+		draw_circle(draw_p, r_rad, Color(0.25, 0.85, 1.0, r_alpha))
 	_draw_pixel_art_probe(draw_p)
 
-	# 9. マウス照準レティクル（SFホログラフィックHUD）
+	# 10. マウス照準レティクル（SFホログラフィックHUD）
 	_draw_aim_reticle(mining_target)
 
-	# 10. フローティングテキスト
+	# 11. フローティングテキスト
 	var font := ThemeDB.fallback_font
 	for ft in floating_texts:
 		var a: float = ft["life"] / ft["max_life"]
@@ -303,18 +367,25 @@ func _draw_pixel_art_probe(p: Vector2) -> void:
 	draw_line(p + Vector2(6, -7), p + Vector2(9, -15), Color(0.5, 0.7, 0.9), 1.2)
 	draw_circle(p + Vector2(9, -16), 1.5, Color(0.3, 1.0, 0.5, 0.9))
 
-	# 6. スラスターノズル噴射炎
+	# 6. スラスターノズル噴射炎＆常時イオンホバリングジェット
 	if is_thrusting:
 		var flame_poly: PackedVector2Array = [
 			p + Vector2(-6, 9),
-			p + Vector2(0, 22 + sin(Time.get_ticks_msec() * 0.05) * 4.0),
+			p + Vector2(0, 24 + sin(Time.get_ticks_msec() * 0.05) * 5.0),
 			p + Vector2(6, 9)
 		]
 		draw_colored_polygon(flame_poly, Color(0.2, 0.7, 1.0, 0.85))
-		draw_circle(p + Vector2(0, 12), 4.0, Color(1.0, 1.0, 1.0, 0.95))
+		draw_circle(p + Vector2(0, 12), 4.5, Color(1.0, 1.0, 1.0, 0.95))
+		# 両翼推進ポッド噴射
+		draw_line(p + Vector2(-18, 5), p + Vector2(-18, 18), Color(0.3, 0.85, 1.0, 0.85), 2.5)
+		draw_line(p + Vector2(18, 5), p + Vector2(18, 18), Color(0.3, 0.85, 1.0, 0.85), 2.5)
 	else:
-		# アイドリング微弱ホバー炎
-		draw_circle(p + Vector2(0, 11), 2.5 + sin(hover_bob * 2.0) * 0.8, Color(0.2, 0.85, 1.0, 0.6))
+		# アイドリング微弱イオンホバー噴流（両翼ポッド＋メインコア）
+		var h_flicker := sin(hover_bob * 2.5) * 1.2
+		draw_line(p + Vector2(-18, 4), p + Vector2(-18, 11 + h_flicker), Color(0.25, 0.85, 1.0, 0.75), 1.8)
+		draw_line(p + Vector2(18, 4), p + Vector2(18, 11 + h_flicker), Color(0.25, 0.85, 1.0, 0.75), 1.8)
+		draw_circle(p + Vector2(0, 10), 3.5 + h_flicker * 0.5, Color(0.2, 0.85, 1.0, 0.65))
+		draw_circle(p + Vector2(0, 10), 1.8, Color(1.0, 1.0, 1.0, 0.95))
 
 func _draw_aim_reticle(mpos: Vector2) -> void:
 	var r_col := Color(0.4, 0.95, 1.0, 0.85) if not is_mining else Color(1.0, 0.85, 0.3, 0.95)

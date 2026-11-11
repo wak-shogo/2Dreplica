@@ -63,8 +63,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			close()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		# ノードクリック判定
 		var mpos: Vector2 = event.position
+		# 1. 選択中ノードのフローティングHUDバッジクリック判定（ダイレクト・アップグレード対応）
+		for node in tree_nodes:
+			if node["id"] == selected_node_id:
+				var p: Vector2 = node["pos"]
+				var bx := p.x + 28.0
+				var by := p.y - 14.0
+				var bw := 125.0
+				var bh := 28.0
+				if bx + bw > 1260.0:
+					bx = p.x - bw - 28.0
+				if Rect2(bx, by, bw, bh).has_point(mpos):
+					_upgrade_node(node)
+					get_viewport().set_input_as_handled()
+					return
+
+		# 2. ノード本体サークルクリック判定
 		for node in tree_nodes:
 			var npos: Vector2 = node["pos"]
 			if mpos.distance_to(npos) < 22.0:
@@ -95,93 +110,91 @@ func _upgrade_node(node: Dictionary) -> void:
 
 func _init_tree_nodes() -> void:
 	tree_nodes.clear()
-	var cx := 880.0
-	var cy := 360.0
 	
-	# 画像2に完全準拠したテックツリー配置
+	# 画像2のピクセルアート背景に100%完全一致させた幾何学的中心座標（実測補正値）
 	tree_nodes.append({
-		"id": "root_thruster", "title": "THRUSTERS", "pos": Vector2(cx - 180, cy - 60),
+		"id": "root_thruster", "title": "THRUSTERS", "pos": Vector2(683.1, 215.5),
 		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🚀", "parents": [], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "thruster_eff", "title": "THRUSTER EFFICIENCY", "pos": Vector2(cx - 100, cy - 140),
+		"id": "thruster_eff", "title": "THRUSTER EFFICIENCY", "pos": Vector2(769.3, 115.1),
 		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🔥", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "mining_speed", "title": "MINING SPEED", "pos": Vector2(cx - 30, cy - 40),
+		"id": "mining_speed", "title": "MINING SPEED", "pos": Vector2(861.9, 211.6),
 		"lvl": 19, "max_lvl": 50, "unlocked": true, "icon": "⚡", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "core_drill", "title": "DEEP DRILL", "pos": Vector2(cx - 30, cy - 130),
+		"id": "core_drill", "title": "DEEP DRILL", "pos": Vector2(862.3, 115.6),
 		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "⚙️", "parents": ["thruster_eff"], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "nano_strength", "title": "NANO-MATERIAL STRENGTH", "pos": Vector2(cx + 60, cy - 120),
+		"id": "nano_strength", "title": "NANO-MATERIAL STRENGTH", "pos": Vector2(959.8, 113.8),
 		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "💠", "parents": ["core_drill"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "scan_range", "title": "SCAN RANGE", "pos": Vector2(cx + 60, cy - 40),
+		"id": "scan_range", "title": "SCAN RANGE", "pos": Vector2(960.6, 279.9),
 		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "📡", "parents": ["mining_speed"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "scan_range_2", "title": "SCAN RANGE II", "pos": Vector2(cx + 140, cy - 40),
+		"id": "scan_range_2", "title": "SCAN RANGE II", "pos": Vector2(1060.0, 296.4),
 		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "🛰️", "parents": ["scan_range"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "nano_eff", "title": "NANO-CORE", "pos": Vector2(cx + 140, cy - 120),
+		"id": "scan_range_1", "title": "SCAN RANGE I", "pos": Vector2(1060.3, 115.5),
 		"lvl": 15, "max_lvl": 50, "unlocked": true, "icon": "💎", "parents": ["nano_strength"], "color_type": "cyan"
 	})
 	
 	# 下段ブランチ
 	tree_nodes.append({
-		"id": "mat_eff", "title": "MATERIAL EFFICIENCY", "pos": Vector2(cx - 180, cy + 40),
+		"id": "mat_eff", "title": "MATERIAL EFFICIENCY", "pos": Vector2(656.0, 357.9),
 		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "📦", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "adv_thrust", "title": "HYPER THRUSTER", "pos": Vector2(cx - 180, cy + 120),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "✨", "parents": ["mat_eff"], "color_type": "orange"
-	})
-	tree_nodes.append({
-		"id": "mined_speed_1", "title": "MINING POWER I", "pos": Vector2(cx - 30, cy + 40),
+		"id": "mined_speed_1", "title": "MINING POWER I", "pos": Vector2(861.5, 360.7),
 		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "🎯", "parents": ["mining_speed"], "color_type": "orange"
 	})
 	tree_nodes.append({
-		"id": "plasma_cutter", "title": "PLASMA CUTTER", "pos": Vector2(cx - 30, cy + 120),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "💥", "parents": ["mined_speed_1"], "color_type": "orange"
-	})
-	tree_nodes.append({
-		"id": "nano_armor", "title": "NANO-ARMOR", "pos": Vector2(cx + 60, cy + 40),
+		"id": "nano_strength_2", "title": "NANO-ARMOR", "pos": Vector2(961.0, 363.7),
 		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🛡️", "parents": ["scan_range"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "quantum_sensor", "title": "QUANTUM SENSOR", "pos": Vector2(cx + 60, cy + 120),
-		"lvl": 5, "max_lvl": 50, "unlocked": true, "icon": "🔍", "parents": ["nano_armor"], "color_type": "cyan"
-	})
-	tree_nodes.append({
-		"id": "fleet_link", "title": "FLEET MATRIX", "pos": Vector2(cx + 140, cy + 40),
+		"id": "nano_core", "title": "NANO-CORE MATRIX", "pos": Vector2(1058.4, 425.5),
 		"lvl": 11, "max_lvl": 50, "unlocked": true, "icon": "🛸", "parents": ["scan_range_2"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "auto_rep", "title": "SELF-REPLICATION", "pos": Vector2(cx + 140, cy + 120),
-		"lvl": 9, "max_lvl": 50, "unlocked": true, "icon": "🔄", "parents": ["fleet_link"], "color_type": "cyan"
+		"id": "plasma_cutter", "title": "PLASMA CUTTER", "pos": Vector2(861.9, 551.0),
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "💥", "parents": ["mined_speed_1"], "color_type": "orange"
+	})
+	tree_nodes.append({
+		"id": "scan_range_sub", "title": "SUB-SCANNER", "pos": Vector2(960.9, 540.5),
+		"lvl": 5, "max_lvl": 50, "unlocked": true, "icon": "🔍", "parents": ["nano_strength_2"], "color_type": "cyan"
+	})
+	tree_nodes.append({
+		"id": "mining_speed_sub", "title": "SELF-REPLICATION", "pos": Vector2(1059.8, 554.2),
+		"lvl": 9, "max_lvl": 50, "unlocked": true, "icon": "🔄", "parents": ["nano_core"], "color_type": "cyan"
+	})
+	tree_nodes.append({
+		"id": "quantum_sensor", "title": "QUANTUM SENSOR", "pos": Vector2(960.6, 649.6),
+		"lvl": 1, "max_lvl": 50, "unlocked": true, "icon": "⚛️", "parents": ["scan_range_sub"], "color_type": "cyan"
 	})
 
 	# 未解除ロックノード（画像2右端）
 	tree_nodes.append({
-		"id": "lock_1", "title": "LOCKED", "pos": Vector2(cx + 220, cy - 120),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["nano_eff"], "color_type": "cyan"
+		"id": "lock_1", "title": "LOCKED", "pos": Vector2(1177.2, 195.4),
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["scan_range_1"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "lock_2", "title": "LOCKED", "pos": Vector2(cx + 220, cy - 40),
+		"id": "lock_2", "title": "LOCKED", "pos": Vector2(1161.0, 310.0),
 		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["scan_range_2"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "lock_3", "title": "LOCKED", "pos": Vector2(cx + 220, cy + 40),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["fleet_link"], "color_type": "cyan"
+		"id": "lock_3", "title": "LOCKED", "pos": Vector2(1161.1, 423.4),
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["nano_core"], "color_type": "cyan"
 	})
 	tree_nodes.append({
-		"id": "lock_4", "title": "LOCKED", "pos": Vector2(cx + 220, cy + 120),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["auto_rep"], "color_type": "cyan"
+		"id": "lock_4", "title": "LOCKED", "pos": Vector2(1161.0, 530.0),
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["mining_speed_sub"], "color_type": "cyan"
 	})
 
 func _draw() -> void:
@@ -207,11 +220,8 @@ func _draw() -> void:
 	# 4. アップグレードパーティクル
 	_draw_upgrade_sparks()
 
-	# 5. ホバー中ノードの詳細ツールチップ
-	_draw_node_tooltip(w, h)
-
-	# 6. PC操作対応の洗練された下部ガイドバー
-	_draw_pc_bottom_bar(w, h)
+	# 5. 選択ノード直横のスマート浮遊HUDバッジ（左画面計器や下段ノードとの衝突ゼロ）
+	_draw_node_hud_badge()
 
 func _draw_live_oscilloscope() -> void:
 	# 左下 EM110 モニター画面 (x: 36 to 110, y: 628 to 678)
@@ -236,15 +246,15 @@ func _draw_selected_node_glow() -> void:
 		var p: Vector2 = node["pos"]
 		if node["id"] == selected_node_id:
 			var col: Color = Color(1.0, 0.8, 0.2, 0.5) if node["color_type"] == "orange" else Color(0.3, 0.9, 1.0, 0.5)
-			# 呼吸するように明滅する外周光輪＆二重選択リング
-			draw_circle(p, 28.0 * pulse, col)
-			draw_circle(p, 23.0 * pulse, Color(1, 1, 1, 0.9), false, 2.0)
-			draw_circle(p, 19.0, Color(1, 1, 1, 0.4), false, 1.0)
+			# 呼吸するように明滅する外周光輪＆二重選択リング（実測ノード中心に完全同期）
+			draw_circle(p, 26.0 * pulse, col)
+			draw_circle(p, 22.0 * pulse, Color(1, 1, 1, 0.9), false, 1.8)
+			draw_circle(p, 18.0, Color(1, 1, 1, 0.4), false, 1.0)
 		elif not hovered_node.is_empty() and hovered_node.get("id") == node["id"]:
-			draw_circle(p, 25.0, Color(0.4, 0.9, 1.0, 0.45))
-			draw_circle(p, 21.0, Color(1, 1, 1, 0.7), false, 1.5)
+			draw_circle(p, 24.0, Color(0.4, 0.9, 1.0, 0.45))
+			draw_circle(p, 20.0, Color(1, 1, 1, 0.7), false, 1.5)
 
-func _draw_node_tooltip(w: float, h: float) -> void:
+func _draw_node_hud_badge() -> void:
 	var target = hovered_node if not hovered_node.is_empty() else null
 	if target == null:
 		for n in tree_nodes:
@@ -255,35 +265,29 @@ func _draw_node_tooltip(w: float, h: float) -> void:
 	if target == null:
 		return
 
+	var p: Vector2 = target["pos"]
 	var font := ThemeDB.fallback_font
-	var bx := w * 0.49
-	var by := h - 90.0
-	var bw := 440.0
-	var bh := 48.0
-
-	draw_rect(Rect2(bx, by, bw, bh), Color(0.04, 0.07, 0.12, 0.98))
-	draw_rect(Rect2(bx, by, bw, bh), Color(0.3, 0.75, 1.0, 0.95), false, 1.5)
-
 	var title: String = target.get("title", "")
 	var lvl: int = target.get("lvl", 1)
 	var max_lvl: int = target.get("max_lvl", 50)
 	var is_unlocked: bool = target.get("unlocked", true)
 
-	draw_string(font, Vector2(bx + 14, by + 20), title + "  [LVL " + str(lvl) + "/" + str(max_lvl) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.35, 0.9, 1.0))
+	# 選択中ノードの右横にスマートに寄り添うコンパクト透過ピル（左右の計器や下段ノードに一切干渉しない）
+	var bx := p.x + 28.0
+	var by := p.y - 14.0
+	var bw := 125.0
+	var bh := 28.0
+	if bx + bw > 1260.0:
+		bx = p.x - bw - 28.0
 
-	var status_text := "COST: 25 NANITES, 120 ORE  |  [CLICK / (Y) TO UPGRADE]" if is_unlocked else "PREREQUISITE TECH REQUIRED [LOCKED]"
-	var status_col := Color(1.0, 0.85, 0.3) if is_unlocked else Color(0.8, 0.3, 0.3)
-	draw_string(font, Vector2(bx + 14, by + 38), status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, status_col)
+	draw_rect(Rect2(bx, by, bw, bh), Color(0.02, 0.05, 0.1, 0.88))
+	draw_rect(Rect2(bx, by, bw, bh), Color(0.35, 0.9, 1.0, 0.95), false, 1.2)
+	draw_line(Vector2(p.x + 18, p.y), Vector2(bx, p.y), Color(0.35, 0.9, 1.0, 0.8), 1.2)
 
-func _draw_pc_bottom_bar(w: float, h: float) -> void:
-	var bar_h := 34.0
-	var by := h - bar_h
-	draw_rect(Rect2(0, by, w, bar_h), Color(0.05, 0.07, 0.12, 0.98))
-	draw_line(Vector2(0, by), Vector2(w, by), Color(0.2, 0.55, 0.8), 1.5)
-
-	var font := ThemeDB.fallback_font
-	var guide_text := "[L-CLICK] UPGRADE NODE   [U] / [ESC] CLOSE TECH TREE   [1~4] SWITCH VIEW   (X) SELECT  (Y) UPGRADE  (B) BACK"
-	draw_string(font, Vector2(0, by + 22), guide_text, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Color(0.4, 0.9, 1.0))
+	draw_string(font, Vector2(bx + 6, by + 12), title, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 8, Color(0.5, 1.0, 1.0))
+	var stat_str := "LV " + str(lvl) + "/" + str(max_lvl) + " [UPGRADE]" if is_unlocked else "[LOCKED]"
+	var stat_col := Color(1.0, 0.85, 0.25) if is_unlocked else Color(0.9, 0.35, 0.35)
+	draw_string(font, Vector2(bx + 6, by + 23), stat_str, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 8, stat_col)
 
 var upgrade_sparks: Array[Dictionary] = []
 

@@ -64,20 +64,21 @@ func _process(delta: float) -> void:
 		if pulse_offsets[i] > 1.0:
 			pulse_offsets[i] -= 1.0
 
-	# 4連スラスターからのプラズマ噴射スパーク
+	# 4連超巨大スラスターからの高輝度プラズマ＆化学火炎スパーク（左側：青白プラズマ、右側：超高温オレンジ火炎）
 	var thruster_nozzles := [
-		{"pos": Vector2(880.0, 260.0), "dir": Vector2(-1.0, -0.65).normalized()},
-		{"pos": Vector2(880.0, 470.0), "dir": Vector2(-1.0, 0.65).normalized()},
-		{"pos": Vector2(1170.0, 240.0), "dir": Vector2(1.0, -0.65).normalized()},
-		{"pos": Vector2(1170.0, 490.0), "dir": Vector2(1.0, 0.65).normalized()}
+		{"pos": Vector2(925.0, 290.0), "dir": Vector2(-0.85, -0.52).normalized(), "is_fire": false}, # 左上：青白プラズマ
+		{"pos": Vector2(935.0, 460.0), "dir": Vector2(-0.82, 0.57).normalized(), "is_fire": false},  # 左下：青白プラズマ
+		{"pos": Vector2(1160.0, 240.0), "dir": Vector2(0.85, -0.52).normalized(), "is_fire": true},  # 右上：オレンジ化学火炎
+		{"pos": Vector2(1160.0, 470.0), "dir": Vector2(0.82, 0.57).normalized(), "is_fire": true}   # 右下：オレンジ化学火炎
 	]
 	for th in thruster_nozzles:
-		if randf() > 0.4:
+		for k in range(3):
+			var spark_col := Color(1.0, randf_range(0.45, 0.85), 0.1, 0.98) if th["is_fire"] else (Color(0.35, 0.85, 1.0, 0.95) if randf() > 0.25 else Color(1.0, 1.0, 1.0, 0.98))
 			thruster_sparks.append({
-				"pos": th["pos"] + th["dir"] * randf_range(10, 80) + Vector2(randf_range(-12, 12), randf_range(-12, 12)),
-				"vel": th["dir"] * randf_range(120, 260) + Vector2(randf_range(-25, 25), randf_range(-25, 25)),
-				"col": Color(0.4, 0.85, 1.0, 0.9) if randf() > 0.3 else Color(1.0, 1.0, 1.0, 0.95),
-				"life": 0.45, "max_life": 0.45, "size": randf_range(2.0, 4.0)
+				"pos": th["pos"] + th["dir"] * randf_range(10, 60) + Vector2(randf_range(-8, 8), randf_range(-8, 8)),
+				"vel": th["dir"] * randf_range(240, 480) + Vector2(randf_range(-30, 30), randf_range(-30, 30)),
+				"col": spark_col,
+				"life": 0.35, "max_life": 0.35, "size": randf_range(2.0, 4.5)
 			})
 
 	# スラスター火花更新
@@ -181,62 +182,180 @@ func _draw() -> void:
 	_draw_fleet_battle()
 
 func _draw_thruster_vfx() -> void:
-	var pulse := 0.85 + sin(flame_timer) * 0.15
+	var pulse := 0.88 + sin(flame_timer) * 0.12
 
-	# スラスターノズル位置と方向
+	# 4連超巨大スラスターノズル位置と噴射ベクトル（画像4：左2基はシアン超光速プラズマ、右2基は白熱オレンジ化学火炎）
+	# 左右とも均質で滑らかなプラズマ炎コーン＋ソフトなアナモルフィック光彩で統一
 	var thruster_nozzles := [
-		{"pos": Vector2(880.0, 260.0), "dir": Vector2(-1.0, -0.65).normalized()},
-		{"pos": Vector2(880.0, 470.0), "dir": Vector2(-1.0, 0.65).normalized()},
-		{"pos": Vector2(1170.0, 240.0), "dir": Vector2(1.0, -0.65).normalized()},
-		{"pos": Vector2(1170.0, 490.0), "dir": Vector2(1.0, 0.65).normalized()}
+		{"pos": Vector2(925.0, 290.0), "dir": Vector2(-0.85, -0.52).normalized(), "is_fire": false}, # 左上：イオン
+		{"pos": Vector2(935.0, 460.0), "dir": Vector2(-0.82, 0.57).normalized(), "is_fire": false},  # 左下：イオン
+		{"pos": Vector2(1160.0, 240.0), "dir": Vector2(0.85, -0.52).normalized(), "is_fire": true},  # 右上：化学火炎
+		{"pos": Vector2(1160.0, 470.0), "dir": Vector2(0.82, 0.57).normalized(), "is_fire": true}   # 右下：化学火炎
 	]
 
 	for th in thruster_nozzles:
 		var p: Vector2 = th["pos"]
 		var d: Vector2 = th["dir"]
-		# ノズル根本の超高温ホワイトグロー
-		draw_circle(p, 16.0 * pulse, Color(0.3, 0.8, 1.0, 0.35))
-		draw_circle(p, 8.0 * pulse, Color(1.0, 1.0, 1.0, 0.75))
+		var is_fire: bool = th.get("is_fire", false)
 
-		# マッハダイヤモンド衝撃波ノード
-		for md in range(1, 4):
-			var node_p: Vector2 = p + d * (md * 32.0 * pulse)
-			draw_circle(node_p, 5.0 * (1.0 - md * 0.2), Color(0.5, 0.9, 1.0, 0.6))
-			draw_circle(node_p, 2.5, Color(1.0, 1.0, 1.0, 0.85))
+		if is_fire:
+			# 右側：太く滑らかなグラデーションの化学火炎コーン
+			_draw_plasma_cone(p, d, 92.0 * pulse, 26.0 * pulse, Color(1.0, 0.45, 0.05, 0.48), Color(1.0, 0.95, 0.7, 0.95))
 
-	# 飛散するプラズマ火花パーティクル
-	for sp in thruster_sparks:
-		var a: float = sp["life"] / sp["max_life"]
-		var c: Color = sp["col"]
-		c.a = a
-		draw_circle(sp["pos"], sp["size"], c)
+			# ノズル直下の白熱ホワイトコア＆高熱脈動
+			draw_circle(p, 16.0 * pulse, Color(1.0, 0.45, 0.05, 0.4))
+			draw_circle(p, 8.5 * pulse, Color(1.0, 0.85, 0.2, 0.75))
+			draw_circle(p, 4.0, Color(1.0, 1.0, 0.9, 0.98))
+
+			# 硬い直線を完全排除した上下減衰ソフト・アナモルフィック・グレア
+			_draw_soft_anamorphic_flare(p, 120.0 * pulse, 12.0 * pulse, Color(1.0, 0.55, 0.15, 0.45))
+			_draw_soft_anamorphic_flare(p, 60.0 * pulse, 6.0 * pulse, Color(1.0, 0.92, 0.65, 0.75))
+
+			# 超音速マッハダイヤモンド衝撃波ノード（オレンジ/白）
+			for md in range(1, 4):
+				var node_p: Vector2 = p + d * (md * 28.0 * pulse)
+				draw_circle(node_p, 4.5 * (1.0 - md * 0.2), Color(1.0, 0.65, 0.15, 0.55))
+				draw_circle(node_p, 2.0, Color(1.0, 1.0, 0.9, 0.95))
+		else:
+			# 左側：右側と完全同一構造・密度の滑らかなシアン/ブルー極低温プラズマ炎コーン
+			_draw_plasma_cone(p, d, 90.0 * pulse, 25.0 * pulse, Color(0.18, 0.72, 1.0, 0.48), Color(0.85, 0.98, 1.0, 0.95))
+
+			# ノズル直下の白熱ホワイトコア＆イオン脈動
+			draw_circle(p, 15.0 * pulse, Color(0.2, 0.7, 1.0, 0.38))
+			draw_circle(p, 7.5 * pulse, Color(0.7, 0.95, 1.0, 0.72))
+			draw_circle(p, 3.5, Color(1.0, 1.0, 1.0, 0.98))
+
+			# 硬い直線を完全排除した上下減衰ソフト・アナモルフィック・グレア
+			_draw_soft_anamorphic_flare(p, 115.0 * pulse, 11.5 * pulse, Color(0.25, 0.75, 1.0, 0.42))
+			_draw_soft_anamorphic_flare(p, 58.0 * pulse, 5.8 * pulse, Color(0.85, 0.98, 1.0, 0.75))
+
+			# 超音速マッハダイヤモンド衝撃波ノード（シアン/白）
+			for md in range(1, 4):
+				var node_p: Vector2 = p + d * (md * 28.0 * pulse)
+				draw_circle(node_p, 4.2 * (1.0 - md * 0.2), Color(0.4, 0.9, 1.0, 0.52))
+				draw_circle(node_p, 1.8, Color(1.0, 1.0, 1.0, 0.92))
+
+func _draw_plasma_cone(pos: Vector2, dir: Vector2, length: float, spread: float, base_col: Color, core_col: Color) -> void:
+	var perp := Vector2(-dir.y, dir.x)
+	# 4層の滑らかなグラデーション・プラズマコーン（左右で同一の美しい流体光彩）
+	for l in range(4):
+		var factor := 1.0 - float(l) * 0.22
+		var clen := length * factor
+		var cspread := spread * factor
+		var c_alpha := base_col.a * (0.2 + float(l) * 0.25)
+		var pts: PackedVector2Array = [
+			pos,
+			pos + dir * (clen * 0.7) + perp * cspread,
+			pos + dir * clen,
+			pos + dir * (clen * 0.7) - perp * cspread
+		]
+		var col := core_col if l == 3 else base_col
+		draw_colored_polygon(pts, Color(col.r, col.g, col.b, c_alpha))
+
+func _draw_soft_anamorphic_flare(pos: Vector2, flare_w: float, flare_h: float, flare_col: Color) -> void:
+	# 8角形ソフト減衰グラデーション（直線の突き刺さりアーティファクトを完全根絶）
+	for layer in range(4):
+		var factor := 1.0 - float(layer) * 0.22
+		var w := flare_w * factor
+		var h := flare_h * factor
+		var a := flare_col.a * (0.22 + 0.22 * float(layer))
+		var pts: PackedVector2Array = [
+			pos + Vector2(-w, 0.0),
+			pos + Vector2(-w * 0.65, -h * 0.5),
+			pos + Vector2(0.0, -h),
+			pos + Vector2(w * 0.65, -h * 0.5),
+			pos + Vector2(w, 0.0),
+			pos + Vector2(w * 0.65, h * 0.5),
+			pos + Vector2(0.0, h),
+			pos + Vector2(-w * 0.65, h * 0.5)
+		]
+		draw_colored_polygon(pts, Color(flare_col.r, flare_col.g, flare_col.b, a))
 
 func _draw_massdriver_pulses() -> void:
-	# 月面マスドライバー砲口 (520, 200) から 要塞 (920, 200) へのベジェ曲線
-	var p0 := Vector2(520.0, 195.0)
-	var p1 := Vector2(720.0, 175.0)
-	var p2 := Vector2(920.0, 200.0)
+	# 月面マスドライバー砲口 (515, 202) から 小惑星軌道 (810, 182) へのベジェ曲線
+	var p0 := Vector2(515.0, 202.0)
+	var p1 := Vector2(680.0, 172.0)
+	var p2 := Vector2(810.0, 182.0)
 
-	for t in pulse_offsets:
+	for i in range(pulse_offsets.size()):
+		var t: float = pulse_offsets[i]
 		var p := (1.0 - t) * (1.0 - t) * p0 + 2.0 * (1.0 - t) * t * p1 + t * t * p2
-		draw_circle(p, 5.0, Color(0.3, 0.95, 1.0, 0.5))
-		draw_circle(p, 2.5, Color(1.0, 1.0, 1.0, 0.9))
+
+		# アイソメトリック（等角投影）立体ワイヤーフレーム貨物キューブ（画像4完全再現）
+		_draw_isometric_cube(p, 7.5, Color(0.35, 0.95, 1.0))
+
+func _draw_isometric_cube(pos: Vector2, size: float, col: Color) -> void:
+	var hw := size * 0.866 # cos(30 deg)
+	var hh := size * 0.5   # sin(30 deg)
+	var h := size * 0.85
+
+	# 1. 上面（ダイヤモンドひし形）
+	var top_pts: PackedVector2Array = [
+		pos + Vector2(0.0, -h),
+		pos + Vector2(hw, -h + hh),
+		pos + Vector2(0.0, -h + hh * 2.0),
+		pos + Vector2(-hw, -h + hh)
+	]
+	draw_colored_polygon(top_pts, Color(col.r, col.g, col.b, 0.45))
+	draw_polyline(top_pts + PackedVector2Array([top_pts[0]]), Color(col.r, col.g, col.b, 0.95), 1.3)
+
+	# 2. 左側面
+	var left_pts: PackedVector2Array = [
+		pos + Vector2(-hw, -h + hh),
+		pos + Vector2(0.0, -h + hh * 2.0),
+		pos + Vector2(0.0, hh * 2.0),
+		pos + Vector2(-hw, hh)
+	]
+	draw_colored_polygon(left_pts, Color(col.r * 0.8, col.g * 0.8, col.b, 0.35))
+	draw_polyline(left_pts + PackedVector2Array([left_pts[0]]), Color(col.r, col.g, col.b, 0.95), 1.3)
+
+	# 3. 右側面
+	var right_pts: PackedVector2Array = [
+		pos + Vector2(0.0, -h + hh * 2.0),
+		pos + Vector2(hw, -h + hh),
+		pos + Vector2(hw, hh),
+		pos + Vector2(0.0, hh * 2.0)
+	]
+	draw_colored_polygon(right_pts, Color(col.r * 0.6, col.g * 0.6, col.b, 0.25))
+	draw_polyline(right_pts + PackedVector2Array([right_pts[0]]), Color(col.r, col.g, col.b, 0.95), 1.3)
+
+	# 内部高輝度コア
+	draw_circle(pos + Vector2(0.0, -h * 0.1), size * 0.22, Color(1.0, 1.0, 1.0, 0.95))
 
 func _draw_fusion_canisters() -> void:
 	# 要塞内部の3連グリーンキャニスター (x: 1040, 1060, 1080, y: 345)
 	var can_pulse := 0.75 + sin(Time.get_ticks_msec() * 0.008) * 0.25
 	var xs := [1040.0, 1060.0, 1080.0]
-	for cx in xs:
+	var t_sec := float(Time.get_ticks_msec()) * 0.001
+	for idx in range(xs.size()):
+		var cx: float = xs[idx]
 		draw_rect(Rect2(cx - 5, 335, 10, 22), Color(0.1, 0.9, 0.35, 0.75 * can_pulse))
 		draw_circle(Vector2(cx, 346), 4.0, Color(0.5, 1.0, 0.7, can_pulse))
+		# 上昇する微小核融合気泡（マイクロバブル）
+		for b in range(3):
+			var b_t := fmod(t_sec * 0.8 + float(b) * 0.35 + float(idx) * 0.2, 1.0)
+			var b_y := 355.0 - b_t * 18.0
+			var b_x := cx + sin(b_t * 8.0 + float(b)) * 2.0
+			draw_circle(Vector2(b_x, b_y), 1.0, Color(0.85, 1.0, 0.9, 0.85 * (1.0 - b_t * 0.5)))
 
 func _draw_fleet_battle() -> void:
-	# レーザー軌跡
+	# レーザー軌跡（強力なブルーム・ホワイトコア・マズルフラッシュ）
 	for l in combat_lasers:
 		var a: float = l["life"] / l["max_life"]
 		var c: Color = l["col"]
 		c.a = a
-		draw_line(l["start"], l["end"], c, 1.5)
+		# 外郭大気光彩ブルーム
+		draw_line(l["start"], l["end"], Color(c.r, c.g, c.b, a * 0.4), 4.5)
+		# 発光メインライン
+		draw_line(l["start"], l["end"], c, 2.5)
+		# 芯の白熱ホワイトコア
+		draw_line(l["start"], l["end"], Color(1.0, 1.0, 1.0, a * 0.95), 1.2)
+		# 先端閃光スパーク
+		draw_circle(l["end"], 3.5, Color(c.r, c.g, c.b, a * 0.6))
+		draw_circle(l["end"], 2.0, Color(1.0, 1.0, 1.0, a * 0.98))
+		# 砲口マズルフラッシュ
+		draw_circle(l["start"], 3.2, Color(c.r, c.g, c.b, a * 0.7))
+		draw_circle(l["start"], 1.8, Color(1.0, 1.0, 1.0, a))
 
 	# 被弾爆発
 	for exp in combat_explosions:

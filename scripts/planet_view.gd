@@ -8,6 +8,10 @@ var backdrop_tex: Texture2D = null
 # 中心座標
 var planet_center: Vector2 = Vector2(640.0, 360.0)
 
+# 地表煙突の排煙パーティクル
+var chimney_smoke: Array[Dictionary] = []
+var smoke_timer: float = 0.0
+
 # 周回シャトル
 var shuttle_angle: float = 0.8
 var shuttle_sparks: Array[Dictionary] = []
@@ -35,20 +39,16 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 
-	# 周回シャトルの移動
-	shuttle_angle += delta * 0.35
-	if shuttle_angle > TAU:
-		shuttle_angle -= TAU
-
-	var shuttle_r := 300.0
-	var s_pos := planet_center + Vector2(cos(shuttle_angle), sin(shuttle_angle)) * shuttle_r
-	var tangent := Vector2(-sin(shuttle_angle), cos(shuttle_angle))
-	shuttle_sparks.append({
-		"pos": s_pos - tangent * 14.0 + Vector2(randf_range(-2, 2), randf_range(-2, 2)),
-		"vel": -tangent * randf_range(40, 90) + Vector2(randf_range(-10, 10), randf_range(-10, 10)),
-		"col": Color(1.0, randf_range(0.5, 0.9), 0.2, 0.9),
-		"life": 0.45, "max_life": 0.45, "size": randf_range(2.0, 4.0)
-	})
+	# 軌道シャトルのスラスター噴射炎（背景シャトル Vector2(956, 137) の推進ベクトルに完全一致）
+	var rocket_exhaust := Vector2(961.0, 144.0)
+	var exhaust_dir := Vector2(0.579, 0.815).normalized() # 軌道接線ベクトルの真後ろ
+	for i in range(2):
+		shuttle_sparks.append({
+			"pos": rocket_exhaust + exhaust_dir * randf_range(2, 6) + Vector2(randf_range(-1.5, 1.5), randf_range(-1.5, 1.5)),
+			"vel": exhaust_dir * randf_range(90, 180) + Vector2(randf_range(-12, 12), randf_range(-12, 12)),
+			"col": Color(1.0, randf_range(0.65, 0.95), 0.25, 0.95),
+			"life": 0.35, "max_life": 0.35, "size": randf_range(2.0, 4.5)
+		})
 
 	var keep_sparks: Array[Dictionary] = []
 	for sp in shuttle_sparks:
@@ -79,22 +79,23 @@ func _process(delta: float) -> void:
 			keep_cs.append(cs)
 	core_sparks = keep_cs
 
-	# 4条のレーザー着弾スパーク
-	laser_pulse += delta * 6.0
+	# 4条のレーザー着弾スパーク（岩盤切削面先端での高熱火花）
+	laser_pulse += delta * 7.0
 	var laser_targets := [
-		planet_center + Vector2(-115, -145),
-		planet_center + Vector2(130, -140),
-		planet_center + Vector2(95, 160),
-		planet_center + Vector2(-105, 150)
+		{"pos": Vector2(538.0, 230.0), "col": Color(0.3, 0.9, 1.0)}, # 北西削岩面先端
+		{"pos": Vector2(765.0, 235.0), "col": Color(0.35, 1.0, 0.5)}, # 北東削岩面先端
+		{"pos": Vector2(548.0, 495.0), "col": Color(0.9, 0.5, 1.0)}, # 南西削岩面先端
+		{"pos": Vector2(725.0, 505.0), "col": Color(1.0, 0.75, 0.25)} # 南東削岩面先端
 	]
 	for lt in laser_targets:
-		if randf() > 0.35:
-			laser_impact_sparks.append({
-				"pos": lt,
-				"vel": Vector2(randf_range(-40, 40), randf_range(-40, 40)),
-				"col": Color(1.0, randf_range(0.7, 1.0), 0.3, 0.95),
-				"life": 0.25, "max_life": 0.25, "size": randf_range(1.5, 3.0)
-			})
+		var p: Vector2 = lt["pos"]
+		var c: Color = lt["col"]
+		laser_impact_sparks.append({
+			"pos": p,
+			"vel": Vector2(randf_range(-90, 90), randf_range(-90, 90)),
+			"col": c if randf() > 0.4 else Color(1.0, 1.0, 1.0, 1.0),
+			"life": 0.28, "max_life": 0.28, "size": randf_range(1.5, 3.5)
+		})
 
 	var keep_lis: Array[Dictionary] = []
 	for lis in laser_impact_sparks:
@@ -103,6 +104,31 @@ func _process(delta: float) -> void:
 			lis["pos"] += lis["vel"] * delta
 			keep_lis.append(lis)
 	laser_impact_sparks = keep_lis
+
+	# 地表煙突からの規則的排煙パーティクル（画像3の工業化スモークを再現）
+	smoke_timer += delta
+	if smoke_timer >= 0.08:
+		smoke_timer = 0.0
+		var chimney_angles := [-1.75, -1.57, -1.35, -1.15, -0.6, 0.2, 1.45, 1.7, 2.6, 3.0]
+		for ca in chimney_angles:
+			var outward := Vector2(cos(ca), sin(ca))
+			var c_pos := planet_center + outward * 252.0
+			chimney_smoke.append({
+				"pos": c_pos + Vector2(randf_range(-2, 2), randf_range(-2, 2)),
+				"vel": outward * randf_range(25, 45) + Vector2(randf_range(-6, 6), randf_range(-6, 6)),
+				"col": Color(0.75, 0.8, 0.88, 0.45),
+				"size": randf_range(2.0, 3.5),
+				"life": 1.1, "max_life": 1.1
+			})
+
+	var keep_smoke: Array[Dictionary] = []
+	for sm in chimney_smoke:
+		sm["life"] -= delta
+		if sm["life"] > 0.0:
+			sm["pos"] += sm["vel"] * delta
+			sm["size"] += delta * 2.5
+			keep_smoke.append(sm)
+	chimney_smoke = keep_smoke
 
 	# プレイヤー操作
 	var move_dir := 0.0
@@ -141,8 +167,21 @@ func _draw() -> void:
 	# 4. 周回シャトル（軌道上の宇宙船）の描画
 	_draw_orbital_shuttle()
 
-	# 5. プレイヤー自己複製機プローブ
+	# 4.5. 工場煙突からの排煙
+	_draw_chimney_smoke()
+
+	# 5. 軌道航法テレメトリHUD計器（高度・速度・軌道パラメータ）
+	_draw_orbital_telemetry()
+
+	# 6. プレイヤー自己複製機プローブ
 	_draw_probe(probe_pos)
+
+func _draw_chimney_smoke() -> void:
+	for sm in chimney_smoke:
+		var a: float = (sm["life"] / sm["max_life"]) * 0.4
+		var c: Color = sm["col"]
+		c.a = a
+		draw_circle(sm["pos"], sm["size"], c)
 
 func _draw_magma_corona() -> void:
 	var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.006) * 0.08
@@ -151,6 +190,12 @@ func _draw_magma_corona() -> void:
 	draw_arc(planet_center, 74.0 * pulse, 0.0, TAU, 32, Color(1.0, 0.45, 0.1, 0.4), 3.0)
 	draw_arc(planet_center, 70.0 * pulse, 0.0, TAU, 32, Color(1.0, 0.75, 0.2, 0.6), 2.0)
 
+	# マントル深部境界岩盤への不可侵熱線反射光彩（生きたマグマ惑星の深部表現）
+	for m_step in range(4):
+		var m_rad := 80.0 + float(m_step) * 9.0
+		var m_alpha := (1.0 - float(m_step) / 4.0) * 0.045 * pulse
+		draw_arc(planet_center, m_rad, 0.0, TAU, 32, Color(1.0, 0.55, 0.1, m_alpha), 3.5)
+
 	# 放射される紅炎スパーク
 	for cs in core_sparks:
 		var a: float = cs["life"] / cs["max_life"]
@@ -158,50 +203,75 @@ func _draw_magma_corona() -> void:
 		c.a = a
 		draw_circle(cs["pos"], cs["size"], c)
 
-func _draw_mining_lasers() -> void:
-	var l_alpha := 0.8 + sin(laser_pulse) * 0.2
+func _draw_orbital_telemetry() -> void:
+	var ox := 20.0
+	var oy := 132.0
+	var ow := 210.0
+	var oh := 72.0
 
-	var laser_configs := [
-		{"start": planet_center + Vector2(-25, -30), "end": planet_center + Vector2(-115, -145), "col": Color(0.25, 0.85, 1.0)},
-		{"start": planet_center + Vector2(25, -28),  "end": planet_center + Vector2(130, -140),  "col": Color(0.3, 1.0, 0.45)},
-		{"start": planet_center + Vector2(22, 32),   "end": planet_center + Vector2(95, 160),    "col": Color(1.0, 0.7, 0.2)},
-		{"start": planet_center + Vector2(-22, 30),  "end": planet_center + Vector2(-105, 150),  "col": Color(0.85, 0.45, 1.0)}
+	# 透過軍用SFパネル
+	var poly: PackedVector2Array = [
+		Vector2(ox + 6, oy),
+		Vector2(ox + ow - 6, oy),
+		Vector2(ox + ow, oy + 6),
+		Vector2(ox + ow, oy + oh - 6),
+		Vector2(ox + ow - 6, oy + oh),
+		Vector2(ox + 6, oy + oh),
+		Vector2(ox, oy + oh - 6),
+		Vector2(ox, oy + 6)
+	]
+	draw_colored_polygon(poly, Color(0.04, 0.08, 0.14, 0.88))
+	draw_polyline(poly, Color(0.25, 0.65, 0.9, 0.85), 1.2)
+	draw_line(poly[poly.size() - 1], poly[0], Color(0.25, 0.65, 0.9, 0.85), 1.2)
+
+	var font := ThemeDB.fallback_font
+	draw_string(font, Vector2(ox + 10, oy + 18), "ORBITAL TELEMETRY // SECTOR-01", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.35, 0.9, 1.0))
+
+	# プレイヤーの操作に応じて動的に変動する航法数値
+	var alt_km := 160.0 + (probe_dist - 180.0) * 1.15
+	var vel_kms := 7.65 + absf(probe_vel) * 0.18
+	draw_string(font, Vector2(ox + 10, oy + 36), "ALT: %.1f km  (STABLE)" % alt_km, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.95, 0.95, 0.98))
+	draw_string(font, Vector2(ox + 10, oy + 50), "VEL: %.2f km/s  [ORBITAL LOCK]" % vel_kms, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.65))
+	draw_string(font, Vector2(ox + 10, oy + 64), "AP: 355 km  |  PE: 338 km  |  INC: 0.4°", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.7, 0.8, 0.9))
+
+func _draw_mining_lasers() -> void:
+	var l_alpha := 0.75 + sin(laser_pulse) * 0.25
+
+	# 坑道内の採掘機先端におけるリアルタイム掘削パルスグロー＆溶融ホットスポット
+	var mining_sites := [
+		{"pos": Vector2(538.0, 230.0), "col": Color(0.25, 0.85, 1.0)}, # 青（北西）
+		{"pos": Vector2(765.0, 235.0), "col": Color(0.3, 1.0, 0.45)},  # 緑（北東）
+		{"pos": Vector2(548.0, 495.0), "col": Color(0.85, 0.45, 1.0)}, # 紫（南西）
+		{"pos": Vector2(725.0, 505.0), "col": Color(1.0, 0.7, 0.2)}    # 橙（南東）
 	]
 
-	for cfg in laser_configs:
-		var s: Vector2 = cfg["start"]
-		var e: Vector2 = cfg["end"]
-		var col: Color = cfg["col"]
+	for site in mining_sites:
+		var p: Vector2 = site["pos"]
+		var col: Color = site["col"]
 
-		# 外側グロー光線
-		draw_line(s, e, Color(col.r, col.g, col.b, 0.4 * l_alpha), 5.0)
-		# コア白色光線
-		draw_line(s, e, Color(col.r, col.g, col.b, 0.95 * l_alpha), 2.2)
-		draw_line(s, e, Color(1, 1, 1, 0.95), 1.0)
+		# 採掘ビーム照射部の動的パルスグロー
+		draw_circle(p, 12.0 * l_alpha, Color(col.r, col.g, col.b, 0.35))
+		draw_circle(p, 6.0 * l_alpha, Color(col.r, col.g, col.b, 0.75))
+		draw_circle(p, 3.0, Color(1.0, 1.0, 1.0, 0.98))
 
-		# 終端着弾部の溶融ホットスポット
-		draw_circle(e, 8.0, Color(col.r, col.g, col.b, 0.6))
-		draw_circle(e, 4.0, Color(1.0, 1.0, 1.0, 0.95))
-
-	# 着弾スパーク
+	# 採掘着弾火花（星型スタンプを完全排除し、高密度微小スパーク粒子として散乱）
 	for sp in laser_impact_sparks:
 		var a: float = sp["life"] / sp["max_life"]
 		var c: Color = sp["col"]
 		c.a = a
 		draw_circle(sp["pos"], sp["size"], c)
+		draw_circle(sp["pos"], sp["size"] * 0.45, Color(1, 1, 1, a * 0.9))
 
 func _draw_orbital_shuttle() -> void:
-	var shuttle_r := 300.0
-	var s_pos := planet_center + Vector2(cos(shuttle_angle), sin(shuttle_angle)) * shuttle_r
-	var tangent := Vector2(-sin(shuttle_angle), cos(shuttle_angle))
+	# 軌道上のシャトル（背景の Vector2(956, 137) にある実機）の排気炎
+	var rocket_exhaust := Vector2(961.0, 144.0)
+	var exhaust_dir := Vector2(0.579, 0.815).normalized()
+	var flame_pulse := 0.88 + sin(Time.get_ticks_msec() * 0.02) * 0.12
 
-	var s_poly: PackedVector2Array = [
-		s_pos + tangent * 12.0,
-		s_pos - tangent * 8.0 + Vector2(-tangent.y, tangent.x) * 6.0,
-		s_pos - tangent * 8.0 - Vector2(-tangent.y, tangent.x) * 6.0
-	]
-	draw_colored_polygon(s_poly, Color(0.9, 0.95, 1.0))
-	draw_circle(s_pos + tangent * 3.0, 2.5, Color(0.2, 0.8, 1.0))
+	# 細長く美しい超音速グラデーション噴流（ボテッとした太さを解消し参照画像に完全準拠）
+	draw_line(rocket_exhaust, rocket_exhaust + exhaust_dir * (22.0 * flame_pulse), Color(0.35, 0.8, 1.0, 0.75), 2.2)
+	draw_line(rocket_exhaust, rocket_exhaust + exhaust_dir * (12.0 * flame_pulse), Color(1.0, 0.95, 0.8, 0.95), 1.4)
+	draw_circle(rocket_exhaust, 2.5 * flame_pulse, Color(1.0, 1.0, 1.0, 0.98))
 
 	for sp in shuttle_sparks:
 		var a: float = sp["life"] / sp["max_life"]
