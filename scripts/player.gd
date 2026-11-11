@@ -25,6 +25,11 @@ var laser_spark_particles: Array[Dictionary] = []
 var is_thrusting: bool = false
 var thruster_particles: Array[Dictionary] = []
 
+# モバイル・タッチ操作対応
+var touch_joystick_vector: Vector2 = Vector2.ZERO
+var touch_mining: bool = false
+var touch_mining_pos: Vector2 = Vector2.ZERO
+
 # 参照
 var game_state: GameState = null
 var orbit_predictor: OrbitPredictor = null
@@ -54,8 +59,11 @@ func _handle_input(delta: float) -> void:
 		move_dir -= 1.0
 	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
 		move_dir += 1.0
+
+	if absf(touch_joystick_vector.x) > 0.15:
+		move_dir = clampf(touch_joystick_vector.x, -1.0, 1.0)
 		
-	is_thrusting = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_SPACE)
+	is_thrusting = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_SPACE) or (touch_joystick_vector.y < -0.35)
 	
 	# スキャナートリガー (Rキー)
 	if Input.is_action_just_pressed("ui_accept") or Input.is_physical_key_pressed(KEY_R):
@@ -110,14 +118,14 @@ func _handle_input(delta: float) -> void:
 			var max_e: float = game_state.resources.get("max_energy", 100.0)
 			game_state.resources["energy"] = minf(max_e, game_state.resources["energy"] + 15.0 * delta)
 
-	# 掘削レーザー（マウス左クリック）
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		var mouse_wpos := get_global_mouse_position()
-		var dist := global_position.distance_to(mouse_wpos)
+	# 掘削レーザー（マウス左クリックまたはタッチ採掘）
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_mining:
+		var target_wpos := touch_mining_pos if touch_mining else get_global_mouse_position()
+		var dist := global_position.distance_to(target_wpos)
 		var actual_laser_range: float = laser_range + (game_state.upgrades.get("laser_range", 1) - 1) * 50.0
 		if dist <= actual_laser_range:
 			is_mining = true
-			laser_target_pos = mouse_wpos
+			laser_target_pos = target_wpos
 			_execute_mining(delta)
 		else:
 			is_mining = false

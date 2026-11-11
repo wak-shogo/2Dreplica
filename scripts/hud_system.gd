@@ -6,6 +6,7 @@ signal build_menu_requested
 signal nano_printer_requested
 signal sector_map_requested
 signal phase_jump_requested(phase: int)
+signal zoom_preset_requested(level: int)
 signal scanner_requested
 
 var game_state: GameState = null
@@ -19,10 +20,11 @@ var toast_timer: float = 0.0
 # タッチ操作リップルエフェクト（スマホ操作性向上）
 var touch_ripples: Array[Dictionary] = []
 
-# テックツリー画面の参照（重複描画防止）
+# オープンワールド・プレイヤー＆カメラ参照
 var tech_tree_screen: Node = null
-var factory_view: Node2D = null
-var planet_view: Node2D = null
+var player: Player = null
+var primary_planet: CelestialBody = null
+var camera: Camera2D = null
 
 # モバイル・タッチ操作システム
 var joystick_center := Vector2(110.0, 580.0)
@@ -165,8 +167,8 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 	if btn_phase_rect.has_point(pos):
 		if game_state != null:
 			game_state.play_sfx(SoundGenerator.create_beep(740.0, 0.1, 0.2))
-			var next_p: int = (game_state.current_phase % 4) + 1
-			phase_jump_requested.emit(next_p)
+			var next_lvl := (game_state.current_phase % 3) + 1
+			zoom_preset_requested.emit(next_lvl)
 		return
 
 	if btn_stage_skip_rect.has_point(pos):
@@ -178,50 +180,51 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 
 	if btn_thrust_rect.has_point(pos):
 		is_thrust_button_pressed = true
-		if factory_view != null:
-			factory_view.touch_joystick_vector.y = -1.0
+		if player != null:
+			player.touch_joystick_vector.y = -1.0
 		return
 
 	if btn_mine_rect.has_point(pos):
 		is_mine_button_pressed = true
-		if factory_view != null:
-			factory_view.touch_mining = true
-			factory_view.touch_mining_pos = factory_view.probe_pos + Vector2(60, 20)
+		if player != null:
+			player.touch_mining = true
+			var facing := Vector2(0, -1).rotated(player.rotation)
+			player.touch_mining_pos = player.global_position + facing * 60.0
 		return
 
 	# 3. 画面直接タップ採掘（スマホ特化：タップした場所を直接レーザー採掘！）
-	if factory_view != null and factory_view.visible:
-		factory_view.touch_mining = true
-		factory_view.touch_mining_pos = pos
+	if player != null and camera != null:
+		var w_pos := camera.get_canvas_transform().affine_inverse() * pos
+		player.touch_mining = true
+		player.touch_mining_pos = w_pos
 
 func _handle_touch_drag(pos: Vector2, touch_id: int) -> void:
 	if is_joystick_touching and touch_id == joystick_touch_id:
 		_update_joystick_pos(pos)
-	elif factory_view != null and factory_view.visible and not is_joystick_touching:
-		factory_view.touch_mining_pos = pos
+	elif player != null and camera != null and not is_joystick_touching:
+		var w_pos := camera.get_canvas_transform().affine_inverse() * pos
+		player.touch_mining_pos = w_pos
 
 func _handle_touch_up(_pos: Vector2, touch_id: int) -> void:
 	if is_joystick_touching and touch_id == joystick_touch_id:
 		is_joystick_touching = false
 		joystick_touch_id = -1
 		joystick_knob_pos = joystick_center
-		if factory_view != null:
-			factory_view.touch_joystick_vector = Vector2.ZERO
-		if planet_view != null:
-			planet_view.touch_joystick_vector = Vector2.ZERO
+		if player != null:
+			player.touch_joystick_vector = Vector2.ZERO
 
 	if is_thrust_button_pressed:
 		is_thrust_button_pressed = false
-		if factory_view != null and not is_joystick_touching:
-			factory_view.touch_joystick_vector.y = 0.0
+		if player != null and not is_joystick_touching:
+			player.touch_joystick_vector.y = 0.0
 
 	if is_mine_button_pressed:
 		is_mine_button_pressed = false
-		if factory_view != null:
-			factory_view.touch_mining = false
+		if player != null:
+			player.touch_mining = false
 
-	if factory_view != null and not is_mine_button_pressed:
-		factory_view.touch_mining = false
+	if player != null and not is_mine_button_pressed:
+		player.touch_mining = false
 
 func _update_joystick_pos(pos: Vector2) -> void:
 	var offset := pos - joystick_center
@@ -231,10 +234,8 @@ func _update_joystick_pos(pos: Vector2) -> void:
 	joystick_knob_pos = joystick_center + offset
 
 	var norm_vec := offset / joystick_radius
-	if factory_view != null:
-		factory_view.touch_joystick_vector = norm_vec
-	if planet_view != null:
-		planet_view.touch_joystick_vector = norm_vec
+	if player != null:
+		player.touch_joystick_vector = norm_vec
 
 func _process(delta: float) -> void:
 	fps_timer += delta

@@ -18,9 +18,6 @@ var hovered_node: Dictionary = {}
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
-	backdrop_tex = _load_texture_safe("res://assets/textures/tex_tech_tree_clean.png")
-	if backdrop_tex == null:
-		backdrop_tex = _load_texture_safe("res://assets/textures/tex_tech_tree_backdrop.png")
 	_init_tree_nodes()
 
 func _load_texture_safe(res_path: String) -> Texture2D:
@@ -229,73 +226,34 @@ func _draw() -> void:
 	var w := vp_size.x
 	var h := vp_size.y
 
-	# 1. 高品位HD-2Dコックピット＆テックツリー背景（画像2完全再現）
-	if backdrop_tex != null:
-		draw_texture_rect(backdrop_tex, Rect2(0, 0, w, h), false)
-	else:
-		draw_rect(Rect2(0, 0, w, h), Color(0.04, 0.05, 0.08, 0.96))
+	# 1. 完全プロシージャル・サイバーホログラム背景＆グリッド
+	draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.05, 0.09, 0.98))
+	var split_x := w * 0.46
+	draw_line(Vector2(split_x, 48), Vector2(split_x, h - 40), Color(0.2, 0.55, 0.85, 0.7), 2.0)
 
-	# 1.2. 左上リソースヘッダーの実データ同期オーバーレイ
-	_draw_live_resource_header()
+	# 2. 上部ヘッダー（ライブリソース完全同期）
+	_draw_header(w)
 
-	# 1.4. 下部モバイル操作ガイド＆タッチ閉じるボタン
+	# 3. 左画面：3D Nano-Printer 造形ステーション＆回転ホログラム
+	_draw_nano_printer_section(split_x, h)
+
+	# 4. 右画面：多分岐テックツリー・ノードネットワーク
+	_draw_tech_tree_section(split_x, w, h)
+
+	# 5. 下部モバイル操作ガイド＆タッチ閉じるボタン
 	_draw_mobile_footer_guide(w, h)
 
-	# 2. オシロスコープ動的波形（EM110モニター枠内に完全格納）
+	# 6. オシロスコープ動的波形
 	_draw_live_oscilloscope()
 
-	# 3. 選択中＆ホバー中ノードの動的パルスグロー
+	# 7. 選択中＆ホバー中ノードの動的パルスグロー
 	_draw_selected_node_glow()
 
-	# 4. アップグレードパーティクル
+	# 8. アップグレードパーティクル
 	_draw_upgrade_sparks()
 
-	# 5. 選択ノード直横のスマート浮遊HUDバッジ（左画面計器や下段ノードとの衝突ゼロ）
+	# 9. 選択ノード直横のスマート浮遊HUDバッジ
 	_draw_node_hud_badge()
-
-func _draw_live_resource_header() -> void:
-	var font := ThemeDB.fallback_font
-	var cur_e := 100
-	var max_e := 100
-	var cur_nano := 15
-	var cur_ore := 0
-
-	if game_state != null:
-		cur_e = int(game_state.resources.get("energy", 100.0))
-		max_e = int(game_state.resources.get("max_energy", 100.0))
-		cur_nano = int(game_state.resources.get("nanites", game_state.resources.get("nano", 15.0)))
-		cur_ore = int(game_state.resources.get("ore", game_state.resources.get("iron", 0.0)))
-
-	# 背景の元文字（ENERGY, NANITES, DATA）を物理的に100%完全隠蔽する不透明サイバーヘッダーパネル
-	var hx := 14.0
-	var hy := 8.0
-	var hw := 476.0
-	var hh := 26.0
-
-	# 完全に不透明なカーボンダーク下地で背景の焼き込み文字を根絶
-	draw_rect(Rect2(hx, hy, hw, hh), Color(0.04, 0.07, 0.12, 1.0))
-	draw_rect(Rect2(hx, hy, hw, hh), Color(0.25, 0.6, 0.85, 0.95), false, 1.5)
-
-	# 1. ⚡ ENERGY
-	var e_box := Rect2(hx + 4.0, hy + 3.0, 150.0, 20.0)
-	draw_rect(e_box, Color(0.06, 0.1, 0.16, 0.9))
-	draw_rect(e_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
-	draw_string(font, Vector2(e_box.position.x + 8.0, e_box.position.y + 14.0), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 0.95, 1.0))
-	draw_string(font, Vector2(e_box.position.x + 80.0, e_box.position.y + 14.0), str(cur_e) + "/" + str(max_e), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.9, 0.3))
-
-	# 2. 🏺 NANITES
-	var n_box := Rect2(hx + 160.0, hy + 3.0, 150.0, 20.0)
-	draw_rect(n_box, Color(0.06, 0.1, 0.16, 0.9))
-	draw_rect(n_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
-	draw_string(font, Vector2(n_box.position.x + 8.0, n_box.position.y + 14.0), "🏺 NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
-	draw_string(font, Vector2(n_box.position.x + 85.0, n_box.position.y + 14.0), str(cur_nano) + "/390", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.9, 1.0, 0.9))
-
-	# 3. 🪙 ORE
-	var o_box := Rect2(hx + 316.0, hy + 3.0, 154.0, 20.0)
-	draw_rect(o_box, Color(0.06, 0.1, 0.16, 0.9))
-	draw_rect(o_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
-	draw_string(font, Vector2(o_box.position.x + 8.0, o_box.position.y + 14.0), "🪙 ORE", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.85, 0.3))
-	draw_string(font, Vector2(o_box.position.x + 75.0, o_box.position.y + 14.0), str(cur_ore), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 1.0, 1.0))
 
 func _draw_mobile_footer_guide(w: float, h: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -367,22 +325,25 @@ func _draw_node_hud_badge() -> void:
 	var max_lvl: int = target.get("max_lvl", 50)
 	var is_unlocked: bool = target.get("unlocked", true)
 
-	# 選択中ノードの右横にスマートに寄り添うコンパクト透過ピル（左右の計器や下段ノードに一切干渉しない）
-	var bx := p.x + 28.0
-	var by := p.y - 14.0
-	var bw := 125.0
-	var bh := 28.0
-	if bx + bw > 1260.0:
-		bx = p.x - bw - 28.0
+	# 選択中ノードの真上にスマートに配置するコンパクト透過ピル（左右の隣接ノードに一切干渉しない）
+	var split_x := get_viewport().get_visible_rect().size.x * 0.46
+	var bw := 135.0
+	var bh := 32.0
+	var bx := p.x - bw * 0.5
+	var by := p.y - 48.0
+	if bx < split_x + 10.0:
+		bx = split_x + 10.0
+	elif bx + bw > 1260.0:
+		bx = 1260.0 - bw
 
-	draw_rect(Rect2(bx, by, bw, bh), Color(0.02, 0.05, 0.1, 0.88))
+	draw_rect(Rect2(bx, by, bw, bh), Color(0.02, 0.05, 0.1, 0.92))
 	draw_rect(Rect2(bx, by, bw, bh), Color(0.35, 0.9, 1.0, 0.95), false, 1.2)
-	draw_line(Vector2(p.x + 18, p.y), Vector2(bx, p.y), Color(0.35, 0.9, 1.0, 0.8), 1.2)
+	draw_line(Vector2(p.x, p.y - 18), Vector2(p.x, by + bh), Color(0.35, 0.9, 1.0, 0.8), 1.2)
 
-	draw_string(font, Vector2(bx + 6, by + 12), title, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 8, Color(0.5, 1.0, 1.0))
+	draw_string(font, Vector2(bx + 6, by + 13), title, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 9, Color(0.5, 1.0, 1.0))
 	var stat_str := "LV " + str(lvl) + "/" + str(max_lvl) + " [UPGRADE]" if is_unlocked else "[LOCKED]"
 	var stat_col := Color(1.0, 0.85, 0.25) if is_unlocked else Color(0.9, 0.35, 0.35)
-	draw_string(font, Vector2(bx + 6, by + 23), stat_str, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 8, stat_col)
+	draw_string(font, Vector2(bx + 6, by + 26), stat_str, HORIZONTAL_ALIGNMENT_LEFT, bw - 12, 8, stat_col)
 
 var upgrade_sparks: Array[Dictionary] = []
 
@@ -407,23 +368,43 @@ func _draw_header(w: float) -> void:
 
 	var font := ThemeDB.fallback_font
 
-	# ⚡ ENERGY 2025/1800
-	draw_string(font, Vector2(25, 28), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.85, 0.2))
-	draw_rect(Rect2(100, 14, 90, 18), Color(0.15, 0.18, 0.22))
-	draw_rect(Rect2(100, 14, 90, 18), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(108, 28), "2025/1800", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1))
+	var cur_e := 2025
+	var max_e := 1800
+	var cur_nano := 29
+	var cur_data := 100
+	if game_state != null:
+		cur_e = int(game_state.resources.get("energy", 2025.0))
+		max_e = int(game_state.resources.get("max_energy", 1800.0))
+		cur_nano = int(game_state.resources.get("nanites", game_state.resources.get("nano", 29.0)))
+		cur_data = int(game_state.resources.get("ore", 100.0))
 
-	# ⚙ NANITES 29/390
-	draw_string(font, Vector2(240, 28), "⚙ NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.9, 0.85))
-	draw_rect(Rect2(325, 14, 80, 18), Color(0.15, 0.18, 0.22))
-	draw_rect(Rect2(325, 14, 80, 18), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(335, 28), "29/390", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1))
+	# ⚡ ENERGY
+	draw_string(font, Vector2(25, 28), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.85, 0.2))
+	var e_str := str(cur_e) + "/" + str(max_e)
+	draw_rect(Rect2(105, 13, 105, 20), Color(0.12, 0.16, 0.22))
+	draw_rect(Rect2(105, 13, 105, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+	draw_string(font, Vector2(110, 27), e_str, HORIZONTAL_ALIGNMENT_CENTER, 95, 11, Color(1, 1, 1))
 
-	# 💾 DATA 100
-	draw_string(font, Vector2(450, 28), "💾 DATA", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.5, 1.0))
-	draw_rect(Rect2(520, 14, 60, 18), Color(0.15, 0.18, 0.22))
-	draw_rect(Rect2(520, 14, 60, 18), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(538, 28), "100", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1))
+	# ⚙ NANITES
+	draw_string(font, Vector2(235, 28), "⚙ NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.3, 0.9, 0.85))
+	var n_str := str(cur_nano) + "/390"
+	draw_rect(Rect2(325, 13, 95, 20), Color(0.12, 0.16, 0.22))
+	draw_rect(Rect2(325, 13, 95, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+	draw_string(font, Vector2(330, 27), n_str, HORIZONTAL_ALIGNMENT_CENTER, 85, 11, Color(1, 1, 1))
+
+	# 💾 DATA
+	draw_string(font, Vector2(445, 28), "💾 DATA", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.5, 1.0))
+	var d_str := str(cur_data)
+	draw_rect(Rect2(515, 13, 85, 20), Color(0.12, 0.16, 0.22))
+	draw_rect(Rect2(515, 13, 85, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+	draw_string(font, Vector2(520, 27), d_str, HORIZONTAL_ALIGNMENT_CENTER, 75, 11, Color(1, 1, 1))
+
+	# ✕ CLOSE ボタン
+	var cb_w := 105.0
+	var cb_rect := Rect2(w - cb_w - 20.0, 10.0, cb_w, 24.0)
+	draw_rect(cb_rect, Color(0.15, 0.05, 0.08, 0.9))
+	draw_rect(cb_rect, Color(1.0, 0.4, 0.4, 0.9), false, 1.2)
+	draw_string(font, Vector2(cb_rect.position.x, cb_rect.position.y + 16.0), "✕ CLOSE [ESC]", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 10, Color(1.0, 0.65, 0.65))
 
 func _draw_nano_printer_section(split_x: float, _h: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -519,7 +500,9 @@ func _draw_nano_printer_section(split_x: float, _h: float) -> void:
 	draw_rect(Rect2(dg_x, dg_y, 250, 95), Color(0.2, 0.5, 0.7), false, 1.0)
 	draw_string(font, Vector2(dg_x + 8, dg_y + 16), "DIAGNOSTIC MATRIX", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.3, 0.85, 1.0))
 	_draw_hologram_probe(Vector2(dg_x + 60, dg_y + 55), 0.0, 0.7)
-	draw_string(font, Vector2(dg_x + 125, dg_y + 40), "HULL: 100% OK\nCORE: ONLINE\nAI CYCLE: NORMAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.9, 0.6))
+	draw_string(font, Vector2(dg_x + 125, dg_y + 38), "HULL: 100% OK", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.9, 0.6))
+	draw_string(font, Vector2(dg_x + 125, dg_y + 54), "CORE: ONLINE", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.9, 0.6))
+	draw_string(font, Vector2(dg_x + 125, dg_y + 70), "AI CYCLE: NORMAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.9, 0.6))
 
 func _draw_tech_tree_section(split_x: float, _w: float, _h: float) -> void:
 	var font := ThemeDB.fallback_font
