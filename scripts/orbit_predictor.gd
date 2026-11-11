@@ -65,6 +65,13 @@ func calculate_orbit(start_pos: Vector2, start_vel: Vector2, celestial_body: Cel
 		
 	queue_redraw()
 
+func clear_orbit() -> void:
+	if trajectory_points.size() > 0:
+		trajectory_points.clear()
+		has_impact = false
+		is_orbit_stable = false
+		queue_redraw()
+
 func _draw() -> void:
 	if trajectory_points.size() < 2:
 		return

@@ -59,7 +59,8 @@ func _process(delta: float) -> void:
 	# エフェクト更新
 	_process_effects(delta)
 	
-	queue_redraw()
+	if not fleet_units.is_empty() or not battle_lasers.is_empty() or not explosions.is_empty() or not debris_list.is_empty():
+		queue_redraw()
 
 func _spawn_enemy_wave() -> void:
 	wave_count += 1

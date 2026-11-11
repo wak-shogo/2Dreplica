@@ -242,7 +242,7 @@ func _process(delta: float) -> void:
 	if fps_timer >= 0.1:
 		fps_timer = 0.0
 		var fps := Engine.get_frames_per_second()
-		current_fps = clampf(fps if fps > 15.0 else 60.0, 59.0, 60.0)
+		current_fps = float(fps)
 		
 	if toast_timer > 0.0:
 		toast_timer -= delta
@@ -382,7 +382,7 @@ func _draw_top_left_hud(ox: float, oy: float) -> void:
 		draw_rect(Rect2(bx, eg_y, 9.5, 11.0), col)
 
 	# ステータス行 3: 独立FPSカウンター（ミリ単位で整頓された独立最下段）
-	var ms_str := "16.6" if current_fps >= 59.0 else "%.1f" % (1000.0 / maxf(current_fps, 1.0))
+	var ms_str := "%.1f" % (1000.0 / maxf(current_fps, 1.0))
 	draw_rect(Rect2(ox + 10.0, oy + 76.0, 175.0, 16.0), Color(0.02, 0.04, 0.08, 0.6))
 	draw_rect(Rect2(ox + 10.0, oy + 76.0, 175.0, 16.0), Color(0.2, 0.5, 0.7, 0.5), false, 1.0)
 	draw_string(font, Vector2(ox + 16.0, oy + 88.0), "SYS TELEMETRY // FPS: " + str(int(current_fps)) + " (" + ms_str + "ms)", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.95, 1.0))

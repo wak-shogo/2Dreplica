@@ -107,7 +107,15 @@ func play_sfx(stream: AudioStreamWAV, volume_db: float = 0.0) -> void:
 func add_resource(res_name: String, amount: float) -> void:
 	if resources.has(res_name):
 		resources[res_name] += amount
-		resources_changed.emit()
+	if res_name == "iron":
+		resources["ore"] = resources.get("ore", 0.0) + amount
+	elif res_name == "ore":
+		resources["iron"] = resources.get("iron", 0.0) + amount
+	elif res_name == "nano":
+		resources["nanites"] = resources.get("nanites", 0.0) + amount
+	elif res_name == "nanites":
+		resources["nano"] = resources.get("nano", 0.0) + amount
+	resources_changed.emit()
 
 func has_resources(cost: Dictionary) -> bool:
 	for k in cost:
@@ -161,9 +169,9 @@ func can_build_next_stage() -> bool:
 	if construction_stage >= stage_requirements.size():
 		return false
 	var req: Dictionary = stage_requirements[construction_stage]
-	var current_ore: float = resources.get("ore", resources.get("iron", 0.0))
+	var current_ore: float = maxf(resources.get("ore", 0.0), resources.get("iron", 0.0))
 	var current_si: float = resources.get("silicon", 0.0)
-	var current_nano: float = resources.get("nanites", resources.get("nano", 0.0))
+	var current_nano: float = maxf(resources.get("nanites", 0.0), resources.get("nano", 0.0))
 	var current_ti: float = resources.get("titanium", 0.0)
 	
 	if req.get("ore", 0.0) > current_ore:
@@ -181,15 +189,17 @@ func build_next_stage() -> bool:
 		return false
 	var req: Dictionary = stage_requirements[construction_stage]
 	if req.has("ore"):
-		if resources.has("ore"): resources["ore"] -= req["ore"]
-		if resources.has("iron"): resources["iron"] -= req["ore"]
+		var o_val: float = req["ore"]
+		resources["ore"] = maxf(0.0, resources.get("ore", 0.0) - o_val)
+		resources["iron"] = maxf(0.0, resources.get("iron", 0.0) - o_val)
 	if req.has("silicon"):
-		resources["silicon"] -= req["silicon"]
+		resources["silicon"] = maxf(0.0, resources.get("silicon", 0.0) - req["silicon"])
 	if req.has("nano"):
-		if resources.has("nanites"): resources["nanites"] -= req["nano"]
-		if resources.has("nano"): resources["nano"] -= req["nano"]
+		var n_val: float = req["nano"]
+		resources["nanites"] = maxf(0.0, resources.get("nanites", 0.0) - n_val)
+		resources["nano"] = maxf(0.0, resources.get("nano", 0.0) - n_val)
 	if req.has("titanium"):
-		resources["titanium"] -= req["titanium"]
+		resources["titanium"] = maxf(0.0, resources.get("titanium", 0.0) - req["titanium"])
 
 	construction_stage += 1
 	stage_changed.emit(construction_stage)

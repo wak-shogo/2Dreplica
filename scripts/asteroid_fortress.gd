@@ -45,6 +45,16 @@ func _init_cargo_cubes() -> void:
 		})
 
 func _process(delta: float) -> void:
+	# カメラから遠く離れている時（主惑星視点）は完全スリープしてFPSを温存
+	var cam_pos := Vector2.ZERO
+	var vp := get_viewport()
+	if vp != null:
+		var cam := vp.get_camera_2d()
+		if cam != null:
+			cam_pos = cam.global_position
+	if global_position.distance_to(cam_pos) > 2600.0:
+		return
+
 	thruster_time += delta * 18.0
 	if boss_hit_flash > 0.0:
 		boss_hit_flash -= delta * 3.0

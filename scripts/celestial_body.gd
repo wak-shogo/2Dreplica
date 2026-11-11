@@ -35,6 +35,8 @@ var internal_lasers: Array[Dictionary] = []
 var angle_steps: int = 180
 var depth_steps: int = 24
 var grid_cells: Array = []
+var active_cells: Array[Dictionary] = []
+var cell_lookup: Dictionary = {}
 
 # スキャン波
 var scan_radius: float = 0.0
@@ -188,6 +190,49 @@ func _init_grid() -> void:
 				if grid_cells[target_a][target_d]["type"] != 0:
 					grid_cells[target_a][target_d]["type"] = ore_t
 
+	# 4. 非岩盤セル（空洞・鉱脈）を事前キャッシュして描画負荷を最小化
+	active_cells.clear()
+	cell_lookup.clear()
+	for a in range(angle_steps):
+		for d in range(depth_steps):
+			if grid_cells[a][d]["type"] != 1:
+				_cache_active_cell(a, d)
+
+func _cache_active_cell(a: int, d: int) -> void:
+	var cell: Dictionary = grid_cells[a][d]
+	var angle_slice := TAU / float(angle_steps)
+	var crust_thickness := base_radius - core_radius
+	var depth_step_size := crust_thickness / float(depth_steps)
+	var a1 := float(a) * angle_slice
+	var a2 := float(a + 1) * angle_slice
+	var dir1 := Vector2(cos(a1), sin(a1))
+	var dir2 := Vector2(cos(a2), sin(a2))
+	var r_out := base_radius - float(d) * depth_step_size
+	var r_in := base_radius - float(d + 1) * depth_step_size
+
+	var p1 := dir1 * r_out
+	var p2 := dir2 * r_out
+	var p3 := dir2 * r_in
+	var p4 := dir1 * r_in
+	var pts := PackedVector2Array([p1, p2, p3, p4])
+	var cp := (p1 + p2 + p3 + p4) * 0.25
+	var cell_ang := float(a) * angle_slice
+
+	var data := {
+		"a": a,
+		"d": d,
+		"cell": cell,
+		"pts": pts,
+		"cp": cp,
+		"p1": p1,
+		"p2": p2,
+		"p3": p3,
+		"p4": p4,
+		"ang": cell_ang
+	}
+	active_cells.append(data)
+	cell_lookup[Vector2i(a, d)] = data
+
 func _process(delta: float) -> void:
 	anim_time += delta
 	shuttle_angle += shuttle_speed * delta
@@ -272,6 +317,11 @@ func mine_at_world_pos(world_pos: Vector2, power: float) -> Dictionary:
 	if cell["hp"] <= 0.0:
 		var m_type: int = cell["type"]
 		cell["type"] = 0
+		var key := Vector2i(a_idx, d_idx)
+		if key in cell_lookup:
+			cell_lookup[key]["cell"]["type"] = 0
+		else:
+			_cache_active_cell(a_idx, d_idx)
 		var r_name := "iron"
 		match m_type:
 			2: r_name = "iron"
@@ -330,6 +380,10 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, scan_radius, 0.0, TAU, 64, Color(0.2, 1.0, 0.85, 1.0 - (scan_radius / scan_max_radius)), 2.5)
 
 func _draw_fluid_magma_core() -> void:
+	# 地表近接ミクロ視点（zoom > 1.2）では地底中心核は画面外のため完全カリング
+	if camera_zoom > 1.2:
+		return
+
 	# 画像3完全再現：対流する熱流体ソーラーマグマ球（対流プロミネンス・フレア・粒状斑）
 	# 1. 外層広域熱波コロナグロー
 	draw_circle(Vector2.ZERO, core_radius + 48.0, Color(1.0, 0.3, 0.02, 0.22))
@@ -375,7 +429,6 @@ func _draw_fluid_magma_core() -> void:
 
 func _draw_natural_crust_and_tunnels() -> void:
 	var crust_thickness := base_radius - core_radius
-	var depth_step_size := crust_thickness / float(depth_steps)
 	var angle_slice := TAU / float(angle_steps)
 
 	# 1. 画像1・3完全再現：地質地層の連続重厚グラデーションリング
@@ -388,53 +441,60 @@ func _draw_natural_crust_and_tunnels() -> void:
 	# 表層ローム土壌層
 	draw_arc(Vector2.ZERO, base_radius - 10.0, 0.0, TAU, 180, Color(0.30, 0.19, 0.14), 20.0)
 
-	# 2. 地下空洞・坑道＆鉱脈の描画
-	for a in range(angle_steps):
-		var a1 := float(a) * angle_slice
-		var a2 := float(a + 1) * angle_slice
-		var dir1 := Vector2(cos(a1), sin(a1))
-		var dir2 := Vector2(cos(a2), sin(a2))
+	# 2. 地下空洞・坑道＆鉱脈の描画（事前キャッシュ＆画角カリングで7200ループを根絶）
+	var cam_pos := Vector2.ZERO
+	var vp := get_viewport()
+	if vp != null:
+		var cam := vp.get_camera_2d()
+		if cam != null:
+			cam_pos = cam.global_position
 
-		for d in range(depth_steps):
-			var cell = grid_cells[a][d]
-			var t: int = cell["type"]
-			var r_out := base_radius - float(d) * depth_step_size
-			var r_in := base_radius - float(d + 1) * depth_step_size
+	var cam_angle := (cam_pos - global_position).angle()
+	if cam_angle < 0.0: cam_angle += TAU
+	var is_zoomed_in := (camera_zoom > 1.0)
+	var max_angle_dist := 0.75 # ズーム時は視界角約43度以内のみ描画
 
-			var p1 := dir1 * r_out
-			var p2 := dir2 * r_out
-			var p3 := dir2 * r_in
-			var p4 := dir1 * r_in
+	for data in active_cells:
+		var t: int = data["cell"]["type"]
+		if t == 1:
+			continue
 
-			if t == 0:
-				# くり抜かれた洞窟・坑道（暗い背景）
-				draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), Color(0.06, 0.07, 0.1))
-				# 木製・鉄骨支柱
-				if d % 3 == 0 and a % 2 == 0:
-					draw_line((p1 + p2) * 0.5, (p3 + p4) * 0.5, Color(0.42, 0.3, 0.18), 3.0)
-					draw_line(p1, p2, Color(0.35, 0.25, 0.15), 2.0)
-				# 天井の鍾乳石（下向き円錐）
-				if d > 0 and grid_cells[a][d - 1]["type"] != 0 and a % 3 == 0:
-					var tip := ((p3 + p4) * 0.5 + (p1 + p2) * 0.5) * 0.5
-					draw_colored_polygon(PackedVector2Array([p1, p2, tip]), Color(0.22, 0.2, 0.22))
-				# 坑道安全バルクヘッド電球（黄色いランタン光）
-				if d % 5 == 0 and a % 7 == 0:
-					var lamp_p := (p1 + p2 + p3 + p4) * 0.25
-					draw_circle(lamp_p, 9.0, Color(1.0, 0.85, 0.3, 0.25))
-					draw_circle(lamp_p, 3.5, Color(1.0, 0.9, 0.5))
-			elif t >= 2:
-				# 輝く鉱脈結晶クラスター（多面体ファセット）
-				var ore_col := Color(1.0, 0.8, 0.25)
-				match t:
-					3: ore_col = Color(0.92, 0.5, 0.22)
-					4: ore_col = Color(0.25, 0.92, 1.0)
-					5: ore_col = Color(0.82, 0.88, 1.0)
-					6: ore_col = Color(0.35, 1.0, 0.55)
+		if is_zoomed_in:
+			var ang_diff := absf(angle_difference(data["ang"], cam_angle))
+			if ang_diff > max_angle_dist:
+				continue
 
-				draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), ore_col * 0.8)
-				var cp := (p1 + p2 + p3 + p4) * 0.25
-				draw_circle(cp, 3.5, ore_col)
-				draw_circle(cp, 1.8, Color(1, 1, 1))
+		var pts: PackedVector2Array = data["pts"]
+		var a: int = data["a"]
+		var d: int = data["d"]
+
+		if t == 0:
+			# くり抜かれた洞窟・坑道（暗い背景）
+			draw_colored_polygon(pts, Color(0.06, 0.07, 0.1))
+			# 木製・鉄骨支柱
+			if d % 3 == 0 and a % 2 == 0:
+				draw_line((data["p1"] + data["p2"]) * 0.5, (data["p3"] + data["p4"]) * 0.5, Color(0.42, 0.3, 0.18), 3.0)
+				draw_line(data["p1"], data["p2"], Color(0.35, 0.25, 0.15), 2.0)
+			# 天井の鍾乳石（下向き円錐）
+			if d > 0 and grid_cells[a][d - 1]["type"] != 0 and a % 3 == 0:
+				var tip: Vector2 = ((data["p3"] + data["p4"]) * 0.5 + (data["p1"] + data["p2"]) * 0.5) * 0.5
+				draw_colored_polygon(PackedVector2Array([data["p1"], data["p2"], tip]), Color(0.22, 0.2, 0.22))
+			# 坑道安全バルクヘッド電球（黄色いランタン光）
+			if d % 5 == 0 and a % 7 == 0:
+				draw_circle(data["cp"], 9.0, Color(1.0, 0.85, 0.3, 0.25))
+				draw_circle(data["cp"], 3.5, Color(1.0, 0.9, 0.5))
+		elif t >= 2:
+			# 輝く鉱脈結晶クラスター（多面体ファセット）
+			var ore_col := Color(1.0, 0.8, 0.25)
+			match t:
+				3: ore_col = Color(0.92, 0.5, 0.22)
+				4: ore_col = Color(0.25, 0.92, 1.0)
+				5: ore_col = Color(0.82, 0.88, 1.0)
+				6: ore_col = Color(0.35, 1.0, 0.55)
+
+			draw_colored_polygon(pts, ore_col * 0.8)
+			draw_circle(data["cp"], 3.5, ore_col)
+			draw_circle(data["cp"], 1.8, Color(1, 1, 1))
 
 	# 3. 地表の草地ライン＆豊かな土壌
 	draw_arc(Vector2.ZERO, base_radius - 3.0, 0.0, TAU, 180, Color(0.38, 0.24, 0.15), 6.0)

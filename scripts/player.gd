@@ -20,6 +20,7 @@ var velocity_vector: Vector2 = Vector2.ZERO
 var is_mining: bool = false
 var laser_target_pos: Vector2 = Vector2.ZERO
 var laser_spark_particles: Array[Dictionary] = []
+var floating_texts: Array[Dictionary] = []
 
 # スラスター炎
 var is_thrusting: bool = false
@@ -49,7 +50,10 @@ func _process(delta: float) -> void:
 	_update_particles(delta)
 	
 	if orbit_predictor != null:
-		orbit_predictor.calculate_orbit(global_position, velocity_vector, current_planet)
+		if is_on_planet_surface:
+			orbit_predictor.clear_orbit()
+		else:
+			orbit_predictor.calculate_orbit(global_position, velocity_vector, current_planet)
 		
 	queue_redraw()
 
@@ -177,10 +181,25 @@ func _execute_mining(delta: float) -> void:
 	})
 	
 	if result.get("success", false) and result.get("broken", false):
-		var res_name: String = result.get("resource", "rock")
-		var amount: float = result.get("amount", 1.0)
+		var res_name: String = result.get("resource", "iron")
+		var amount: float = result.get("amount", 3.0)
 		game_state.add_resource(res_name, amount)
 		game_state.play_sfx(SoundGenerator.create_laser(0.12, 0.2))
+
+		# 浮遊リソース取得ポップアップ演出
+		var f_col := Color(1.0, 0.85, 0.2)
+		if res_name == "silicon": f_col = Color(0.25, 0.9, 1.0)
+		elif res_name == "copper": f_col = Color(0.95, 0.5, 0.2)
+		elif res_name == "titanium": f_col = Color(0.8, 0.9, 1.0)
+		elif res_name == "uranium": f_col = Color(0.3, 1.0, 0.5)
+
+		floating_texts.append({
+			"pos": laser_target_pos,
+			"text": "+%d %s" % [int(amount), res_name.to_upper()],
+			"col": f_col,
+			"life": 0.85,
+			"max_life": 0.85
+		})
 
 func _update_particles(delta: float) -> void:
 	var i := 0
@@ -203,6 +222,16 @@ func _update_particles(delta: float) -> void:
 		else:
 			j += 1
 
+	var k := 0
+	while k < floating_texts.size():
+		var ft = floating_texts[k]
+		ft["life"] -= delta
+		ft["pos"].y -= delta * 36.0
+		if ft["life"] <= 0.0:
+			floating_texts.remove_at(k)
+		else:
+			k += 1
+
 func _draw() -> void:
 	# スラスター炎
 	for p in thruster_particles:
@@ -210,17 +239,28 @@ func _draw() -> void:
 		var col := Color(1.0, 0.6, 0.2, alpha)
 		draw_circle(to_local(p["pos"]), 3.0 * alpha, col)
 
-	# 掘削レーザービーム
+	# 掘削レーザービーム＆ターゲットレティクル
 	if is_mining:
 		var local_target := to_local(laser_target_pos)
 		# ビーム本体（シアン＋白コア）
 		draw_line(Vector2(0, -6), local_target, Color(0.2, 0.8, 1.0, 0.4), 4.0)
 		draw_line(Vector2(0, -6), local_target, Color(0.8, 1.0, 1.0, 0.9), 1.5)
+		draw_circle(local_target, 4.0, Color(1.0, 0.95, 0.4, 0.9))
+		draw_arc(local_target, 8.0, 0.0, TAU, 16, Color(0.2, 0.9, 1.0, 0.8), 1.5)
 		
 	# スパーク
 	for p in laser_spark_particles:
 		var alpha: float = clampf(p["life"] / p["max_life"], 0.0, 1.0)
 		draw_circle(to_local(p["pos"]), 2.0, Color(1.0, 0.9, 0.3, alpha))
+
+	# 浮遊リソース取得テキスト
+	var font := ThemeDB.fallback_font
+	for ft in floating_texts:
+		var a: float = ft["life"] / ft["max_life"]
+		var c: Color = ft["col"]
+		c.a = a
+		var lpos := to_local(ft["pos"])
+		draw_string(font, lpos, ft["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 11, c)
 
 	# フォン・ノイマン・プローブ（画像1・2完全準拠：高密度ピクセルアートメカ）
 	# 外郭チタン装甲フレーム
