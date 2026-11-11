@@ -106,7 +106,6 @@ func _init_grid() -> void:
 
 	# 2. 地下有機的洞窟・坑道の掘削（d >= 3〜4 の地下に配置し、地表を削らない）
 	# Phase 1 工場直下の地下空洞システム（角度 122〜164 = ラジアン -1.8〜-1.1 付近）
-	# 左洞窟チャンバー（イジェクター・ホッパー坑道：角度 124〜140、深さ 7〜13）
 	for a in range(124, 140):
 		var a_idx: int = a % angle_steps
 		var ca_mid: float = 9.5 + sin(float(a) * 0.4) * 1.8
@@ -114,12 +113,10 @@ func _init_grid() -> void:
 			if d >= 3 and d < depth_steps - 1:
 				grid_cells[a_idx][d]["type"] = 0
 
-	# 垂直連絡シャフト（角度 142〜143、深さ 2〜12）
 	for a_idx in [142, 143]:
 		for d in range(2, 13):
 			grid_cells[a_idx][d]["type"] = 0
 
-	# 右洞窟チャンバー（地下溶鉱炉室：角度 146〜162、深さ 8〜14）
 	for a in range(146, 162):
 		var a_idx: int = a % angle_steps
 		var ca_mid: float = 11.0 + cos(float(a) * 0.35) * 1.5
@@ -127,13 +124,11 @@ func _init_grid() -> void:
 			if d >= 3 and d < depth_steps - 1:
 				grid_cells[a_idx][d]["type"] = 0
 
-	# 斜行連絡コンベアトンネル（角度 138〜148、深さ 9〜12）
 	for step in range(10):
 		var a_idx: int = (138 + step) % angle_steps
 		var d: int = clampi(9 + int(step * 0.3), 3, depth_steps - 1)
 		grid_cells[a_idx][d]["type"] = 0
 
-	# 他セクターの自然な地下大洞窟（角度 35〜75、深さ 10〜16）
 	for a in range(35, 75):
 		var a_idx: int = a % angle_steps
 		var ca_mid: float = 13.0 + sin(float(a) * 0.2) * 2.5
@@ -141,7 +136,6 @@ func _init_grid() -> void:
 			if d >= 4 and d < depth_steps - 1:
 				grid_cells[a_idx][d]["type"] = 0
 
-	# 南半球の深層空洞（角度 210〜255、深さ 12〜17）
 	for a in range(210, 255):
 		var a_idx: int = a % angle_steps
 		var ca_mid: float = 14.5 + cos(float(a) * 0.25) * 2.0
@@ -150,7 +144,6 @@ func _init_grid() -> void:
 				grid_cells[a_idx][d]["type"] = 0
 
 	# 3. 鉱脈クラスター（画像1・3のカラフルな鉱石ポケット）
-	# 鉄鉱脈 (type=2, 琥珀ゴールド, 浅層〜中層)
 	for seed_a in [30, 80, 128, 155, 190, 245, 310]:
 		var sa: int = int(seed_a * (angle_steps / 360.0))
 		var sd: int = rng.randi_range(3, 9)
@@ -162,7 +155,6 @@ func _init_grid() -> void:
 					if grid_cells[target_a][target_d]["type"] != 0:
 						grid_cells[target_a][target_d]["type"] = 2
 
-	# シリコン鉱脈 (type=4, エレクトリックシアン, 中層)
 	for seed_a in [50, 135, 150, 215, 290]:
 		var sa: int = int(seed_a * (angle_steps / 360.0))
 		var sd: int = rng.randi_range(7, 15)
@@ -174,7 +166,6 @@ func _init_grid() -> void:
 					if grid_cells[target_a][target_d]["type"] != 0:
 						grid_cells[target_a][target_d]["type"] = 4
 
-	# 銅鉱脈 (type=3, カッパーオレンジ, 中層〜深層)
 	for seed_a in [95, 140, 175, 275, 345]:
 		var sa: int = int(seed_a * (angle_steps / 360.0))
 		var sd: int = rng.randi_range(10, 18)
@@ -186,7 +177,6 @@ func _init_grid() -> void:
 					if grid_cells[target_a][target_d]["type"] != 0:
 						grid_cells[target_a][target_d]["type"] = 3
 
-	# チタン・ウラン (type=5, 6, ネオングリーン/白銀, 深層マントル境界)
 	for seed_a in [65, 132, 158, 230, 325]:
 		var sa: int = int(seed_a * (angle_steps / 360.0))
 		var sd: int = rng.randi_range(16, depth_steps - 2)
@@ -340,37 +330,63 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, scan_radius, 0.0, TAU, 64, Color(0.2, 1.0, 0.85, 1.0 - (scan_radius / scan_max_radius)), 2.5)
 
 func _draw_fluid_magma_core() -> void:
-	# 画像3完全再現：対流する超高熱プラズマコア球
-	# 外層コロナ熱線
-	draw_circle(Vector2.ZERO, core_radius + 36.0, Color(1.0, 0.35, 0.05, 0.18))
-	draw_circle(Vector2.ZERO, core_radius + 18.0, Color(1.0, 0.45, 0.1, 0.45))
-	draw_circle(Vector2.ZERO, core_radius, Color(0.96, 0.24, 0.02, 0.98))
+	# 画像3完全再現：対流する熱流体ソーラーマグマ球（対流プロミネンス・フレア・粒状斑）
+	# 1. 外層広域熱波コロナグロー
+	draw_circle(Vector2.ZERO, core_radius + 48.0, Color(1.0, 0.3, 0.02, 0.22))
+	draw_circle(Vector2.ZERO, core_radius + 24.0, Color(1.0, 0.45, 0.08, 0.5))
 
-	# 28本の対流プロミネンス・フレア噴炎
-	var steps := 28
+	# 2. 48本のうごめくソーラープロミネンス噴炎（二重高調波乱流）
+	var steps := 48
 	for i in range(steps):
-		var a := float(i) / float(steps) * TAU + anim_time * 0.4
-		var flare_r := core_radius * 0.92 + sin(a * 6.0 + anim_time * 3.5) * 16.0
-		var p := Vector2(cos(a), sin(a)) * flare_r
-		draw_line(Vector2.ZERO, p, Color(1.0, 0.65, 0.15, 0.4), 12.0)
+		var a := float(i) / float(steps) * TAU
+		var turb := sin(a * 8.0 + anim_time * 4.5) * 22.0 + cos(a * 15.0 - anim_time * 2.8) * 12.0
+		var flare_r := core_radius * 0.94 + turb
+		var p_start := Vector2(cos(a), sin(a)) * (core_radius * 0.75)
+		var p_end := Vector2(cos(a), sin(a)) * flare_r
+		draw_line(p_start, p_end, Color(1.0, 0.55, 0.1, 0.45), 14.0)
+		draw_line(p_start, p_end, Color(1.0, 0.82, 0.25, 0.7), 6.0)
 
-	# 粒状斑マントル球
-	draw_circle(Vector2.ZERO, core_radius * 0.75, Color(1.0, 0.55, 0.1, 0.98))
-	draw_circle(Vector2.ZERO, core_radius * 0.55, Color(1.0, 0.85, 0.3, 1.0))
-	draw_circle(Vector2.ZERO, core_radius * 0.32, Color(1.0, 0.98, 0.88, 1.0))
+	# 3. 巨大プロミネンスプラズマループ（マントル層へ伸びる弧状フィラメント）
+	for loop_i in range(5):
+		var la := anim_time * 0.3 + float(loop_i) * (TAU / 5.0)
+		var lp0 := Vector2(cos(la), sin(la)) * core_radius
+		var lp2 := Vector2(cos(la + 0.35), sin(la + 0.35)) * core_radius
+		var lp1 := Vector2(cos(la + 0.175), sin(la + 0.175)) * (core_radius + 36.0)
+		var loop_pts := PackedVector2Array()
+		for s in range(13):
+			var t := float(s) / 12.0
+			var pt := (1.0 - t) * (1.0 - t) * lp0 + 2.0 * (1.0 - t) * t * lp1 + t * t * lp2
+			loop_pts.append(pt)
+		draw_polyline(loop_pts, Color(1.0, 0.45, 0.08, 0.8), 5.0)
+		draw_polyline(loop_pts, Color(1.0, 0.9, 0.4, 0.95), 2.0)
+
+	# 4. 粒状斑マントル球（グラニュレーション対流セル）
+	draw_circle(Vector2.ZERO, core_radius, Color(0.95, 0.2, 0.02, 0.98))
+	for g in range(24):
+		var ga := float(g) / 24.0 * TAU + anim_time * 0.2
+		var gr := (core_radius * 0.7) + sin(ga * 4.0 + anim_time) * 16.0
+		var gp := Vector2(cos(ga), sin(ga)) * gr
+		draw_circle(gp, 18.0, Color(1.0, 0.65, 0.12, 0.65))
+
+	# 5. 白熱高熱マントル〜純白核融合コア
+	draw_circle(Vector2.ZERO, core_radius * 0.72, Color(1.0, 0.68, 0.15, 0.98))
+	draw_circle(Vector2.ZERO, core_radius * 0.52, Color(1.0, 0.88, 0.35, 1.0))
+	draw_circle(Vector2.ZERO, core_radius * 0.32, Color(1.0, 0.98, 0.85, 1.0))
 
 func _draw_natural_crust_and_tunnels() -> void:
 	var crust_thickness := base_radius - core_radius
 	var depth_step_size := crust_thickness / float(depth_steps)
 	var angle_slice := TAU / float(angle_steps)
 
-	# 1. 地質地層の連続グラデーションリング
-	# 深層マントル境界（玄武岩・高圧変成岩）
-	draw_arc(Vector2.ZERO, core_radius + crust_thickness * 0.25, 0.0, TAU, 180, Color(0.18, 0.15, 0.19), crust_thickness * 0.5)
-	# 中層堆積岩層
-	draw_arc(Vector2.ZERO, core_radius + crust_thickness * 0.65, 0.0, TAU, 180, Color(0.24, 0.22, 0.25), crust_thickness * 0.4)
-	# 浅層土壌層
-	draw_arc(Vector2.ZERO, base_radius - 12.0, 0.0, TAU, 180, Color(0.28, 0.18, 0.13), 24.0)
+	# 1. 画像1・3完全再現：地質地層の連続重厚グラデーションリング
+	# 深層マントル境界（玄武岩・高圧変成岩・マグマ余熱）
+	draw_arc(Vector2.ZERO, core_radius + crust_thickness * 0.2, 0.0, TAU, 180, Color(0.16, 0.13, 0.18), crust_thickness * 0.4)
+	# 中層堆積岩層（砂岩・花崗岩帯）
+	draw_arc(Vector2.ZERO, core_radius + crust_thickness * 0.55, 0.0, TAU, 180, Color(0.24, 0.21, 0.25), crust_thickness * 0.35)
+	# 浅層岩盤層
+	draw_arc(Vector2.ZERO, core_radius + crust_thickness * 0.85, 0.0, TAU, 180, Color(0.28, 0.24, 0.26), crust_thickness * 0.25)
+	# 表層ローム土壌層
+	draw_arc(Vector2.ZERO, base_radius - 10.0, 0.0, TAU, 180, Color(0.30, 0.19, 0.14), 20.0)
 
 	# 2. 地下空洞・坑道＆鉱脈の描画
 	for a in range(angle_steps):
@@ -395,41 +411,47 @@ func _draw_natural_crust_and_tunnels() -> void:
 				draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), Color(0.06, 0.07, 0.1))
 				# 木製・鉄骨支柱
 				if d % 3 == 0 and a % 2 == 0:
-					draw_line((p1 + p2) * 0.5, (p3 + p4) * 0.5, Color(0.38, 0.28, 0.18), 2.5)
+					draw_line((p1 + p2) * 0.5, (p3 + p4) * 0.5, Color(0.42, 0.3, 0.18), 3.0)
+					draw_line(p1, p2, Color(0.35, 0.25, 0.15), 2.0)
 				# 天井の鍾乳石（下向き円錐）
 				if d > 0 and grid_cells[a][d - 1]["type"] != 0 and a % 3 == 0:
 					var tip := ((p3 + p4) * 0.5 + (p1 + p2) * 0.5) * 0.5
 					draw_colored_polygon(PackedVector2Array([p1, p2, tip]), Color(0.22, 0.2, 0.22))
+				# 坑道安全バルクヘッド電球（黄色いランタン光）
+				if d % 5 == 0 and a % 7 == 0:
+					var lamp_p := (p1 + p2 + p3 + p4) * 0.25
+					draw_circle(lamp_p, 9.0, Color(1.0, 0.85, 0.3, 0.25))
+					draw_circle(lamp_p, 3.5, Color(1.0, 0.9, 0.5))
 			elif t >= 2:
-				# 輝く鉱脈クラスター
-				var ore_col := Color(1.0, 0.8, 0.25) # 鉄・ゴールド
+				# 輝く鉱脈結晶クラスター（多面体ファセット）
+				var ore_col := Color(1.0, 0.8, 0.25)
 				match t:
-					3: ore_col = Color(0.9, 0.48, 0.22) # 銅
-					4: ore_col = Color(0.25, 0.9, 1.0)  # シリコン
-					5: ore_col = Color(0.8, 0.85, 0.98) # チタン
-					6: ore_col = Color(0.35, 1.0, 0.55) # ウラン
+					3: ore_col = Color(0.92, 0.5, 0.22)
+					4: ore_col = Color(0.25, 0.92, 1.0)
+					5: ore_col = Color(0.82, 0.88, 1.0)
+					6: ore_col = Color(0.35, 1.0, 0.55)
 
-				draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), ore_col * 0.85)
-				# 鉱脈のハイライト輝点
-				var center_p := (p1 + p2 + p3 + p4) * 0.25
-				draw_circle(center_p, 2.5, ore_col)
-				draw_circle(center_p, 1.2, Color(1, 1, 1))
+				draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), ore_col * 0.8)
+				var cp := (p1 + p2 + p3 + p4) * 0.25
+				draw_circle(cp, 3.5, ore_col)
+				draw_circle(cp, 1.8, Color(1, 1, 1))
 
 	# 3. 地表の草地ライン＆豊かな土壌
-	draw_arc(Vector2.ZERO, base_radius - 2.5, 0.0, TAU, 180, Color(0.38, 0.24, 0.15), 5.0)
-	draw_arc(Vector2.ZERO, base_radius, 0.0, TAU, 180, Color(0.35, 0.78, 0.24), 4.0)
+	draw_arc(Vector2.ZERO, base_radius - 3.0, 0.0, TAU, 180, Color(0.38, 0.24, 0.15), 6.0)
+	draw_arc(Vector2.ZERO, base_radius, 0.0, TAU, 180, Color(0.35, 0.78, 0.24), 4.5)
 
 	# 地表の草のフリンジ＆丸い小岩（ミクロズーム時）
 	if camera_zoom > 1.2:
-		for a_i in range(120, 168):
+		for a_i in range(115, 172):
 			var a_rad := float(a_i) * angle_slice
 			var p_surf := Vector2(cos(a_rad), sin(a_rad)) * base_radius
 			var up_v := Vector2(cos(a_rad), sin(a_rad))
 			# 草の葉
-			draw_line(p_surf, p_surf + up_v * (4.0 + sin(float(a_i) * 3.1) * 2.5), Color(0.42, 0.86, 0.3), 1.5)
+			draw_line(p_surf, p_surf + up_v * (5.0 + sin(float(a_i) * 3.1) * 3.0), Color(0.42, 0.88, 0.32), 1.8)
 			# 表面の小岩
-			if a_i % 7 == 0:
-				draw_circle(p_surf + up_v * 1.5, 3.5, Color(0.45, 0.48, 0.52))
+			if a_i % 6 == 0:
+				draw_circle(p_surf + up_v * 2.0, 4.0, Color(0.48, 0.5, 0.55))
+				draw_circle(p_surf + up_v * 2.5, 2.0, Color(0.65, 0.68, 0.72))
 
 func _draw_internal_lasers() -> void:
 	for l in internal_lasers:
@@ -442,43 +464,47 @@ func _draw_internal_lasers() -> void:
 		draw_circle(p2, 3.5, Color(1, 1, 1))
 
 func _draw_surface_factories() -> void:
-	# 画像3完全再現：地表全周の重厚なサイバー工業都市（48棟のビル、煙突、電波塔）
-	var count := 48
+	# 画像3完全再現：地表360度全周の重厚なサイバー工業都市（64棟の工場、煙突、電波塔、パイプライン）
+	var count := 64
 	for i in range(count):
 		var a := float(i) / float(count) * TAU
 		var dir := Vector2(cos(a), sin(a))
 		var perp := Vector2(-dir.y, dir.x)
 		var base_p := dir * base_radius
 
-		var b_height := 26.0 + sin(float(i) * 3.7) * 16.0
-		var b_width := 15.0
+		var b_height := 28.0 + sin(float(i) * 4.2) * 18.0
+		var b_width := 16.0
 
 		var b1 := base_p - perp * (b_width * 0.5)
 		var b2 := base_p + perp * (b_width * 0.5)
 		var b3 := base_p + dir * b_height + perp * (b_width * 0.5)
 		var b4 := base_p + dir * b_height - perp * (b_width * 0.5)
 
-		draw_colored_polygon(PackedVector2Array([b1, b2, b3, b4]), Color(0.18, 0.22, 0.28))
-		draw_polyline(PackedVector2Array([b1, b4, b3, b2]), Color(0.35, 0.55, 0.75), 1.2)
+		draw_colored_polygon(PackedVector2Array([b1, b2, b3, b4]), Color(0.2, 0.24, 0.3))
+		draw_polyline(PackedVector2Array([b1, b4, b3, b2]), Color(0.4, 0.6, 0.8), 1.2)
+
+		# 窓の光
+		draw_circle(base_p + dir * (b_height * 0.5), 2.5, Color(0.3, 0.9, 1.0, 0.9))
 
 		# 工場煙突＆もくもく煙
 		if i % 3 == 0:
-			var chimney_top := base_p + dir * (b_height + 16.0)
-			draw_line(base_p + dir * b_height, chimney_top, Color(0.45, 0.3, 0.25), 3.5)
-			draw_circle(chimney_top, 3.0, Color(1.0, 0.45, 0.1, 0.9))
-			# 煙パーティクル
+			var chimney_top := base_p + dir * (b_height + 18.0)
+			draw_line(base_p + dir * b_height, chimney_top, Color(0.48, 0.32, 0.26), 4.0)
+			draw_circle(chimney_top, 3.5, Color(1.0, 0.45, 0.1, 0.95))
 			for s in range(3):
-				var sp := chimney_top + dir * (10.0 + s * 9.0) + perp * sin(anim_time * 2.0 + float(i) + s) * 4.0
-				draw_circle(sp, 4.0 + s * 2.0, Color(0.65, 0.68, 0.72, 0.35 - s * 0.08))
+				var sp := chimney_top + dir * (10.0 + s * 9.0) + perp * sin(anim_time * 2.2 + float(i) + s) * 5.0
+				draw_circle(sp, 4.5 + s * 2.2, Color(0.68, 0.7, 0.75, 0.38 - s * 0.09))
 		elif i % 3 == 1:
 			# アンテナ尖塔＆赤色点滅ビーコン
-			var pylon_top := base_p + dir * (b_height + 22.0)
-			draw_line(base_p + dir * b_height, pylon_top, Color(0.6, 0.7, 0.8), 1.5)
-			var blink := (sin(anim_time * 6.0 + float(i)) > 0.0)
-			draw_circle(pylon_top, 3.0, Color(1.0, 0.2, 0.2, 1.0) if blink else Color(0.4, 0.1, 0.1, 0.5))
+			var pylon_top := base_p + dir * (b_height + 25.0)
+			draw_line(base_p + dir * b_height, pylon_top, Color(0.65, 0.75, 0.85), 1.8)
+			var blink := (sin(anim_time * 6.5 + float(i)) > 0.0)
+			draw_circle(pylon_top, 3.5, Color(1.0, 0.2, 0.2, 1.0) if blink else Color(0.4, 0.1, 0.1, 0.5))
 		else:
-			# 冷却タワー・シアン発光窓
-			draw_circle(base_p + dir * (b_height * 0.6), 3.0, Color(0.2, 0.9, 1.0, 0.95))
+			# パイプライン連絡橋
+			var next_a := float(i + 1) / float(count) * TAU
+			var next_p := Vector2(cos(next_a), sin(next_a)) * (base_radius + 18.0)
+			draw_line(base_p + dir * 18.0, next_p, Color(0.35, 0.45, 0.55), 2.0)
 
 # 惑星表面の法線に密着配置する変換ヘルパー
 func _draw_on_surface(angle: float, height_offset: float, draw_fn: Callable) -> void:
@@ -490,11 +516,9 @@ func _draw_on_surface(angle: float, height_offset: float, draw_fn: Callable) -> 
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_phase1_2_detailed_factories() -> void:
-	# Stage 0: 荒野（機械一切なしのサバイバルスタート）
 	if construction_stage <= 0:
 		return
 
-	# LOD制御：マクロ・恒星系ズーム時はミクロ詳細施設を非表示にして惑星スケールを保つ
 	if camera_zoom < 0.85:
 		return
 
@@ -507,81 +531,104 @@ func _draw_phase1_2_detailed_factories() -> void:
 		for a_pos in [-1.78, -1.60]:
 			_draw_on_surface(a_pos, 0.0, func():
 				# ガントリー外枠（重機スチールフレーム＆黄色黒ハザードストライプ）
-				draw_rect(Rect2(-38, -82, 76, 82), Color(0.2, 0.24, 0.3))
-				draw_rect(Rect2(-30, -72, 60, 72), Color(0.05, 0.07, 0.1))
-				draw_rect(Rect2(-38, -82, 76, 82), Color(0.5, 0.65, 0.8), false, 2.2)
-				# 支柱トラスクロス
-				draw_line(Vector2(-36, -80), Vector2(-30, -72), Color(0.4, 0.5, 0.6), 1.5)
-				draw_line(Vector2(36, -80), Vector2(30, -72), Color(0.4, 0.5, 0.6), 1.5)
-				# 上部プリントヘッド＆レーザー
-				draw_line(Vector2(0, -72), Vector2(0, -36), Color(0.85, 0.9, 1.0), 3.5)
-				draw_line(Vector2(0, -36), Vector2(0, -22), Color(1.0, 0.95, 0.4), 2.0)
-				# 2本のロボット溶接アーム
-				draw_line(Vector2(-24, -42), Vector2(-12, -24), Color(0.65, 0.72, 0.82), 3.0)
-				draw_line(Vector2(24, -42), Vector2(12, -24), Color(0.65, 0.72, 0.82), 3.0)
+				draw_rect(Rect2(-42, -92, 84, 92), Color(0.18, 0.22, 0.28))
+				draw_rect(Rect2(-34, -82, 68, 82), Color(0.04, 0.06, 0.08))
+				draw_rect(Rect2(-42, -92, 84, 92), Color(0.55, 0.7, 0.88), false, 2.5)
+
+				# トラス構造クロスブレース
+				draw_line(Vector2(-40, -90), Vector2(-34, -82), Color(0.5, 0.6, 0.7), 2.0)
+				draw_line(Vector2(40, -90), Vector2(34, -82), Color(0.5, 0.6, 0.7), 2.0)
+				draw_line(Vector2(-42, -50), Vector2(-34, -40), Color(0.5, 0.6, 0.7), 2.0)
+				draw_line(Vector2(42, -50), Vector2(34, -40), Color(0.5, 0.6, 0.7), 2.0)
+
+				# 基底ハザードストライプ（黄・黒斜め線）
+				draw_rect(Rect2(-42, -10, 84, 10), Color(0.95, 0.8, 0.1))
+				for hz in range(6):
+					draw_line(Vector2(-38 + hz * 14, 0), Vector2(-30 + hz * 14, -10), Color(0.1, 0.1, 0.1), 3.5)
+
+				# 上部プリントヘッド＆高電圧レーザー
+				draw_line(Vector2(0, -82), Vector2(0, -42), Color(0.9, 0.95, 1.0), 4.0)
+				draw_line(Vector2(0, -42), Vector2(0, -25), Color(1.0, 0.95, 0.4), 2.5)
+
+				# 2本の多関節油圧ロボット溶接アーム
+				draw_line(Vector2(-28, -50), Vector2(-14, -30), Color(0.7, 0.78, 0.88), 3.5)
+				draw_circle(Vector2(-14, -30), 3.5, Color(0.9, 0.7, 0.2))
+				draw_line(Vector2(28, -50), Vector2(14, -30), Color(0.7, 0.78, 0.88), 3.5)
+				draw_circle(Vector2(14, -30), 3.5, Color(0.9, 0.7, 0.2))
+
 				# 造形中のブルーホログラムフレーム
-				draw_rect(Rect2(-18, -28, 36, 28), Color(0.2, 0.85, 1.0, 0.85), false, 1.8)
-				# 超高熱レーザー着弾発光＆スパーク
-				draw_circle(Vector2(0, -22), 8.0, Color(1.0, 0.95, 0.5, 0.95))
-				draw_circle(Vector2(0, -22), 4.0, Color(1, 1, 1))
+				draw_rect(Rect2(-20, -32, 40, 32), Color(0.2, 0.85, 1.0, 0.9), false, 2.0)
+
+				# 超高熱レーザー着弾発光＆スパークシャワー
+				draw_circle(Vector2(0, -25), 9.0, Color(1.0, 0.95, 0.5, 0.98))
+				draw_circle(Vector2(0, -25), 4.5, Color(1, 1, 1))
+				draw_line(Vector2(-20, -25), Vector2(20, -25), Color(0.4, 0.9, 1.0, 0.8), 2.0)
+				for sp_i in range(5):
+					var sp_ang := randf_range(-PI * 0.8, -PI * 0.2)
+					var sp_len := randf_range(8, 22)
+					draw_line(Vector2(0, -25), Vector2(cos(sp_ang), sin(sp_ang)) * sp_len + Vector2(0, -25), Color(1.0, 0.9, 0.3), 1.5)
 			)
 
 	# 2. 地上：左エジェクターキャノン（Stage >= 3、角度 -1.48）
 	if construction_stage >= 3:
 		_draw_on_surface(-1.48, 0.0, func():
-			# 砲台台座
-			draw_rect(Rect2(-18, -18, 36, 18), Color(0.28, 0.32, 0.38))
-			draw_rect(Rect2(-18, -18, 36, 18), Color(0.5, 0.6, 0.7), false, 1.5)
-			# 斜め砲身（右上の空に向けて射出）
-			draw_line(Vector2(-4, -8), Vector2(24, -36), Color(0.55, 0.62, 0.72), 9.0)
-			draw_circle(Vector2(24, -36), 6.0, Color(1.0, 0.75, 0.25))
+			# 頑強なリベット留め砲台台座
+			draw_rect(Rect2(-22, -20, 44, 20), Color(0.28, 0.32, 0.38))
+			draw_rect(Rect2(-22, -20, 44, 20), Color(0.55, 0.65, 0.78), false, 2.0)
+			draw_circle(Vector2(-16, -10), 2.0, Color(0.8, 0.85, 0.9))
+			draw_circle(Vector2(16, -10), 2.0, Color(0.8, 0.85, 0.9))
+
+			# 斜めヘビー砲身（右上の空に向けて射出）
+			draw_line(Vector2(-6, -10), Vector2(28, -42), Color(0.58, 0.65, 0.75), 11.0)
+			draw_line(Vector2(-6, -10), Vector2(28, -42), Color(0.85, 0.7, 0.3), 4.0)
+			draw_circle(Vector2(28, -42), 7.0, Color(1.0, 0.8, 0.3))
 		)
 
 	# 3. 地上：垂直エレベーターリフト坑口（Stage >= 2、角度 -1.40）
 	if construction_stage >= 2:
 		_draw_on_surface(-1.40, 0.0, func():
-			# 地上リフトヘッド
-			draw_rect(Rect2(-14, -32, 28, 32), Color(0.22, 0.26, 0.32))
-			draw_rect(Rect2(-14, -32, 28, 32), Color(0.45, 0.6, 0.8), false, 1.5)
-			draw_circle(Vector2(0, -18), 7.0, Color(0.9, 0.6, 0.2))
+			draw_rect(Rect2(-16, -36, 32, 36), Color(0.24, 0.28, 0.35))
+			draw_rect(Rect2(-16, -36, 32, 36), Color(0.5, 0.65, 0.85), false, 2.0)
+			draw_circle(Vector2(0, -20), 8.0, Color(0.95, 0.65, 0.2))
+			draw_circle(Vector2(0, -20), 4.0, Color(1, 1, 1))
 		)
 
 	# 4. 地上：溶鉱炉2棟（Stage >= 1、角度 -1.30, -1.18 に接地配置）
 	if construction_stage >= 1:
 		_draw_on_surface(-1.30, 0.0, func():
 			# 溶鉱炉A
-			draw_rect(Rect2(-24, -46, 48, 46), Color(0.28, 0.22, 0.2))
-			draw_rect(Rect2(-24, -46, 48, 46), Color(0.55, 0.45, 0.35), false, 2.0)
+			draw_rect(Rect2(-26, -52, 52, 52), Color(0.3, 0.22, 0.18))
+			draw_rect(Rect2(-26, -52, 52, 52), Color(0.6, 0.48, 0.36), false, 2.2)
 			# 煙突＆煙
-			var c_top := Vector2(6, -66)
-			draw_line(Vector2(6, -46), c_top, Color(0.35, 0.3, 0.25), 6.0)
-			for s in range(3):
-				var sp := c_top + Vector2(sin(anim_time * 2.0 + s) * 5.0, -8.0 - s * 10.0)
-				draw_circle(sp, 5.0 + s * 2.5, Color(0.7, 0.72, 0.75, 0.38 - s * 0.1))
+			var c_top := Vector2(8, -74)
+			draw_line(Vector2(8, -52), c_top, Color(0.38, 0.3, 0.24), 7.0)
+			for s in range(4):
+				var sp := c_top + Vector2(sin(anim_time * 2.2 + s) * 6.0, -8.0 - s * 11.0)
+				draw_circle(sp, 6.0 + s * 3.0, Color(0.72, 0.74, 0.78, 0.42 - s * 0.1))
 			# 燃え盛る炉口の炎
-			var fw := 18.0 + sin(anim_time * 10.0) * 3.0
-			draw_rect(Rect2(-fw * 0.5, -26, fw, 18), Color(1.0, 0.35, 0.05, 0.98))
-			draw_circle(Vector2(0, -17), 6.0, Color(1.0, 0.92, 0.4, 1.0))
+			var fw := 20.0 + sin(anim_time * 10.0) * 4.0
+			draw_rect(Rect2(-fw * 0.5, -30, fw, 22), Color(1.0, 0.35, 0.05, 0.98))
+			draw_circle(Vector2(0, -19), 7.0, Color(1.0, 0.92, 0.4, 1.0))
 		)
 		_draw_on_surface(-1.18, 0.0, func():
 			# 溶鉱炉B
-			draw_rect(Rect2(-22, -42, 44, 42), Color(0.26, 0.2, 0.18))
-			draw_rect(Rect2(-22, -42, 44, 42), Color(0.5, 0.4, 0.3), false, 1.8)
-			var c_top := Vector2(-4, -60)
-			draw_line(Vector2(-4, -42), c_top, Color(0.35, 0.3, 0.25), 5.5)
-			for s in range(3):
-				var sp := c_top + Vector2(cos(anim_time * 2.5 + s) * 4.0, -8.0 - s * 9.0)
-				draw_circle(sp, 4.5 + s * 2.0, Color(0.7, 0.72, 0.75, 0.35 - s * 0.1))
-			draw_rect(Rect2(-8, -22, 16, 16), Color(1.0, 0.4, 0.08, 0.98))
-			draw_circle(Vector2(0, -14), 5.0, Color(1.0, 0.85, 0.3, 1.0))
+			draw_rect(Rect2(-24, -46, 48, 46), Color(0.28, 0.2, 0.16))
+			draw_rect(Rect2(-24, -46, 48, 46), Color(0.55, 0.44, 0.32), false, 2.0)
+			var c_top := Vector2(-5, -68)
+			draw_line(Vector2(-5, -46), c_top, Color(0.38, 0.3, 0.24), 6.5)
+			for s in range(4):
+				var sp := c_top + Vector2(cos(anim_time * 2.5 + s) * 5.0, -8.0 - s * 10.0)
+				draw_circle(sp, 5.5 + s * 2.5, Color(0.72, 0.74, 0.78, 0.4 - s * 0.1))
+			draw_rect(Rect2(-10, -25, 20, 18), Color(1.0, 0.4, 0.08, 0.98))
+			draw_circle(Vector2(0, -16), 6.0, Color(1.0, 0.88, 0.3, 1.0))
 		)
 
 	# 5. 地上：右エジェクターキャノン（Stage >= 3、角度 -1.06）
 	if construction_stage >= 3:
 		_draw_on_surface(-1.06, 0.0, func():
-			draw_rect(Rect2(-16, -16, 32, 16), Color(0.28, 0.32, 0.38))
-			draw_line(Vector2(4, -6), Vector2(-22, -34), Color(0.55, 0.62, 0.72), 8.5)
-			draw_circle(Vector2(-22, -34), 5.5, Color(0.3, 0.85, 1.0))
+			draw_rect(Rect2(-18, -18, 36, 18), Color(0.28, 0.32, 0.38))
+			draw_line(Vector2(4, -8), Vector2(-26, -38), Color(0.58, 0.65, 0.75), 9.5)
+			draw_circle(Vector2(-26, -38), 6.5, Color(0.3, 0.85, 1.0))
 		)
 
 	# 6. 地上弾道：緑の点線放物線＆飛翔する赤熱鉱石（Stage >= 3）
@@ -591,25 +638,25 @@ func _draw_phase1_2_detailed_factories() -> void:
 		var p0 := Vector2(cos(a_ej), sin(a_ej)) * (base_radius + 36.0)
 		var p2 := Vector2(cos(a_rc), sin(a_rc)) * (base_radius + 34.0)
 		var mid_a := (a_ej + a_rc) * 0.5
-		var p1 := Vector2(cos(mid_a), sin(mid_a)) * (base_radius + 175.0)
+		var p1 := Vector2(cos(mid_a), sin(mid_a)) * (base_radius + 185.0)
 
 		# 弾道スプライン
 		var spline_pts := PackedVector2Array()
-		var steps := 32
+		var steps := 36
 		for s in range(steps + 1):
 			var t := float(s) / float(steps)
 			var pt := (1.0 - t) * (1.0 - t) * p0 + 2.0 * (1.0 - t) * t * p1 + t * t * p2
 			spline_pts.append(pt)
 		for s in range(spline_pts.size() - 1):
 			if s % 2 == 0:
-				draw_line(spline_pts[s], spline_pts[s + 1], Color(0.2, 1.0, 0.45, 0.95), 3.0)
+				draw_line(spline_pts[s], spline_pts[s + 1], Color(0.2, 1.0, 0.45, 0.95), 3.5)
 
 		# 飛翔する赤熱鉱石
 		for ore in lobbed_ores:
 			var t: float = ore["t"]
 			var opt := (1.0 - t) * (1.0 - t) * p0 + 2.0 * (1.0 - t) * t * p1 + t * t * p2
-			draw_circle(opt, 7.0, Color(1.0, 0.45, 0.1, 0.55))
-			draw_circle(opt, 4.5, Color(1.0, 0.85, 0.3, 0.98))
+			draw_circle(opt, 8.0, Color(1.0, 0.45, 0.1, 0.6))
+			draw_circle(opt, 5.0, Color(1.0, 0.85, 0.3, 0.98))
 			draw_circle(opt, 2.5, Color(1, 1, 1))
 
 	# 7. 地下施設（左洞窟：ホッパー＆キャノン、右洞窟：地下溶鉱炉2棟、斜行コンベア）
@@ -619,37 +666,37 @@ func _draw_phase1_2_detailed_factories() -> void:
 		var dir_sh := Vector2(cos(a_shaft), sin(a_shaft))
 		var r_top := base_radius - 2.0
 		var r_bot := base_radius - 160.0
-		draw_line(dir_sh * r_top, dir_sh * r_bot, Color(0.2, 0.24, 0.3), 16.0)
-		draw_line(dir_sh * r_top, dir_sh * r_bot, Color(0.5, 0.6, 0.75), 16.0, false)
+		draw_line(dir_sh * r_top, dir_sh * r_bot, Color(0.2, 0.24, 0.3), 18.0)
+		draw_line(dir_sh * r_top, dir_sh * r_bot, Color(0.5, 0.65, 0.8), 18.0, false)
 		for step in range(6):
 			var r_step := r_top - float(step) * 26.0 - fmod(anim_time * 40.0, 26.0)
 			if r_step > r_bot:
-				draw_circle(dir_sh * r_step, 4.0, Color(0.95, 0.65, 0.2))
+				draw_circle(dir_sh * r_step, 4.5, Color(0.95, 0.65, 0.2))
 
 		# 地下斜行コンベア（左洞窟から垂直シャフトへ）
 		var p_cave_left := Vector2(cos(-1.52), sin(-1.52)) * (base_radius - 120.0)
 		var p_shaft_mid := dir_sh * (base_radius - 90.0)
-		draw_line(p_cave_left, p_shaft_mid, Color(0.3, 0.35, 0.42), 6.0)
+		draw_line(p_cave_left, p_shaft_mid, Color(0.32, 0.38, 0.46), 7.0)
 		for c_i in range(5):
 			var ct := fmod(float(c_i) * 0.2 + anim_time * 0.3, 1.0)
 			var cp := p_cave_left.lerp(p_shaft_mid, ct)
-			draw_circle(cp, 3.5, Color(0.9, 0.6, 0.2))
+			draw_circle(cp, 4.0, Color(0.9, 0.6, 0.2))
 
 		# 地下左洞窟：ホッパーと小型キャノン
 		var p_hop := Vector2(cos(-1.58), sin(-1.58)) * (base_radius - 120.0)
 		draw_polygon(PackedVector2Array([
-			p_hop + Vector2(-12, -16), p_hop + Vector2(12, -16),
-			p_hop + Vector2(6, 0), p_hop + Vector2(-6, 0)
-		]), [Color(0.2, 0.75, 0.35)])
+			p_hop + Vector2(-14, -18), p_hop + Vector2(14, -18),
+			p_hop + Vector2(7, 0), p_hop + Vector2(-7, 0)
+		]), [Color(0.2, 0.78, 0.38)])
 
 		# 地下右洞窟：地下溶鉱炉2棟（Stage >= 3）
 		if construction_stage >= 3:
 			for r_a in [-1.26, -1.16]:
 				var p_furn := Vector2(cos(r_a), sin(r_a)) * (base_radius - 140.0)
-				draw_rect(Rect2(p_furn.x - 18, p_furn.y - 32, 36, 32), Color(0.25, 0.2, 0.18))
-				draw_rect(Rect2(p_furn.x - 18, p_furn.y - 32, 36, 32), Color(0.5, 0.4, 0.3), false, 1.5)
-				draw_rect(Rect2(p_furn.x - 8, p_furn.y - 18, 16, 14), Color(1.0, 0.4, 0.08, 0.95))
-				draw_circle(p_furn + Vector2(0, -11), 4.5, Color(1.0, 0.88, 0.3))
+				draw_rect(Rect2(p_furn.x - 20, p_furn.y - 36, 40, 36), Color(0.28, 0.2, 0.18))
+				draw_rect(Rect2(p_furn.x - 20, p_furn.y - 36, 40, 36), Color(0.55, 0.42, 0.32), false, 1.8)
+				draw_rect(Rect2(p_furn.x - 9, p_furn.y - 20, 18, 16), Color(1.0, 0.4, 0.08, 0.95))
+				draw_circle(p_furn + Vector2(0, -12), 5.0, Color(1.0, 0.88, 0.3))
 
 func _draw_orbital_shuttle() -> void:
 	# シアン軌道リング
@@ -661,18 +708,18 @@ func _draw_orbital_shuttle() -> void:
 	var fwd := Vector2(-sin(shuttle_angle), cos(shuttle_angle))
 	var perp := Vector2(-fwd.y, fwd.x)
 
-	var p1 := sp + fwd * 16.0
-	var p2 := sp - fwd * 10.0 + perp * 8.0
-	var p3 := sp - fwd * 6.0
-	var p4 := sp - fwd * 10.0 - perp * 8.0
+	var p1 := sp + fwd * 18.0
+	var p2 := sp - fwd * 12.0 + perp * 9.0
+	var p3 := sp - fwd * 7.0
+	var p4 := sp - fwd * 12.0 - perp * 9.0
 
 	draw_colored_polygon(PackedVector2Array([p1, p2, p3, p4]), Color(0.92, 0.95, 1.0))
 	draw_polyline(PackedVector2Array([p1, p2, p3, p4, p1]), Color(0.3, 0.8, 1.0), 1.5)
 
 	# 推進火炎ジェット
-	var flame_tip := sp - fwd * (14.0 + sin(anim_time * 20.0) * 8.0)
-	draw_colored_polygon(PackedVector2Array([sp - perp * 4.0, sp + perp * 4.0, flame_tip]), Color(1.0, 0.5, 0.1, 0.95))
-	draw_colored_polygon(PackedVector2Array([sp - perp * 2.0, sp + perp * 2.0, sp - fwd * 10.0]), Color(1.0, 0.95, 0.5))
+	var flame_tip := sp - fwd * (16.0 + sin(anim_time * 20.0) * 9.0)
+	draw_colored_polygon(PackedVector2Array([sp - perp * 4.5, sp + perp * 4.5, flame_tip]), Color(1.0, 0.5, 0.1, 0.95))
+	draw_colored_polygon(PackedVector2Array([sp - perp * 2.0, sp + perp * 2.0, sp - fwd * 11.0]), Color(1.0, 0.95, 0.5))
 
 func _draw_moon() -> void:
 	# 画像4完全再現：超高精細クレーター月面・地下基地・ヘビーマスドライバー
@@ -709,7 +756,7 @@ func _draw_moon() -> void:
 
 	# 3. 月面地下基地の断面（同心円状の掘削迷路とミニコア）
 	draw_circle(Vector2.ZERO, 90.0, Color(0.12, 0.14, 0.18))
-	draw_circle(Vector2.ZERO, 55.0, Color(1.0, 0.85, 0.4, 0.9)) # ミニ溶岩コア
+	draw_circle(Vector2.ZERO, 55.0, Color(1.0, 0.85, 0.4, 0.9))
 	draw_circle(Vector2.ZERO, 30.0, Color(1.0, 0.98, 0.85))
 
 	# 4. ヘビーマスドライバー電磁カタパルト（画像4：右向き小惑星に向けて超長距離射出）

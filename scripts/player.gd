@@ -222,17 +222,25 @@ func _draw() -> void:
 		var alpha: float = clampf(p["life"] / p["max_life"], 0.0, 1.0)
 		draw_circle(to_local(p["pos"]), 2.0, Color(1.0, 0.9, 0.3, alpha))
 
-	# フォン・ノイマン・プローブ（機体スプライト描画）
-	# ピクセルアート風の幾何学メカ
-	# 本体フレーム
-	draw_rect(Rect2(-8, -12, 16, 16), Color(0.2, 0.25, 0.35))
-	draw_rect(Rect2(-6, -10, 12, 12), Color(0.35, 0.45, 0.6))
-	# コアセンサー（緑に発光）
-	draw_circle(Vector2(0, -4), 3.0, Color(0.2, 1.0, 0.5, 0.9))
-	# ソーラー/ナノウイング
-	draw_line(Vector2(-8, -4), Vector2(-14, -8), Color(0.3, 0.8, 1.0), 2.0)
-	draw_line(Vector2(8, -4), Vector2(14, -8), Color(0.3, 0.8, 1.0), 2.0)
-	# バーニアノズル
+	# フォン・ノイマン・プローブ（画像1・2完全準拠：高密度ピクセルアートメカ）
+	# 外郭チタン装甲フレーム
+	draw_rect(Rect2(-12, -16, 24, 22), Color(0.18, 0.22, 0.3))
+	draw_rect(Rect2(-10, -14, 20, 18), Color(0.28, 0.42, 0.58))
+	draw_rect(Rect2(-12, -16, 24, 22), Color(0.5, 0.75, 1.0), false, 1.2)
+
+	# 中央AIコアセンサー（脈動するエメラルドグリーン光）
+	var eye_pulse := 0.85 + sin(Time.get_ticks_msec() * 0.008) * 0.15
+	draw_circle(Vector2(0, -5), 4.5 * eye_pulse, Color(0.2, 1.0, 0.6, 0.95))
+	draw_circle(Vector2(0, -5), 2.0, Color(1, 1, 1))
+
+	# 展開式ソーラーナノウイング（翼端ビーコン付き）
+	draw_line(Vector2(-12, -7), Vector2(-22, -14), Color(0.35, 0.85, 1.0), 2.5)
+	draw_circle(Vector2(-22, -14), 2.5, Color(0.3, 0.9, 1.0))
+	draw_line(Vector2(12, -7), Vector2(22, -14), Color(0.35, 0.85, 1.0), 2.5)
+	draw_circle(Vector2(22, -14), 2.5, Color(0.3, 0.9, 1.0))
+
+	# スラスターバーニアノズル
 	draw_polygon(PackedVector2Array([
-		Vector2(-4, 4), Vector2(4, 4), Vector2(2, 7), Vector2(-2, 7)
-	]), [Color(0.2, 0.2, 0.2)])
+		Vector2(-6, 6), Vector2(6, 6), Vector2(4, 11), Vector2(-4, 11)
+	]), [Color(0.25, 0.3, 0.38)])
+	draw_line(Vector2(-4, 11), Vector2(4, 11), Color(1.0, 0.6, 0.2), 2.0)

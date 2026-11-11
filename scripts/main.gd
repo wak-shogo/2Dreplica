@@ -45,26 +45,52 @@ func _ready() -> void:
 	_setup_ui()
 
 func _init_space_background() -> void:
-	# 900個の星々（大小、色温度：青白、金、赤）
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 424242
-	for i in range(900):
-		var p := Vector2(rng.randf_range(-8000, 8000), rng.randf_range(-8000, 8000))
-		var sz := rng.randf_range(1.0, 3.2)
-		var hue := rng.randf_range(0.55, 0.75) if rng.randf() > 0.3 else rng.randf_range(0.08, 0.16)
-		var b := rng.randf_range(0.4, 1.0)
+	stars.clear()
+	nebulae.clear()
+
+	# 1. ゾーン1：地表ミクロ上空（画像1：星空・ネビュラ）
+	for i in range(450):
+		var p := Vector2(rng.randf_range(-1400, 1400), rng.randf_range(-1600, -380))
+		var sz := rng.randf_range(1.0, 3.5)
+		var is_b := (rng.randf() > 0.88)
+		var hue := rng.randf_range(0.55, 0.72) if rng.randf() > 0.25 else rng.randf_range(0.08, 0.16)
 		stars.append({
-			"pos": p,
-			"size": sz,
-			"col": Color.from_hsv(hue, rng.randf_range(0.1, 0.5), b, rng.randf_range(0.4, 0.95))
+			"pos": p, "size": sz, "bright": is_b, "phase": rng.randf_range(0, TAU),
+			"col": Color.from_hsv(hue, rng.randf_range(0.1, 0.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.5, 0.95))
 		})
 
-	# 幻想的な星雲ネビュラ塊（紫・青・マゼンタ）
-	for j in range(16):
+	# 2. ゾーン2：主惑星全周・宇宙空間（画像3：連星・高密度星野）
+	for i in range(850):
+		var a := rng.randf_range(0, TAU)
+		var r := rng.randf_range(520, 2100)
+		var p := Vector2(cos(a), sin(a)) * r
+		var sz := rng.randf_range(0.9, 3.2)
+		var is_b := (rng.randf() > 0.9)
+		var hue := rng.randf_range(0.55, 0.75) if rng.randf() > 0.3 else rng.randf_range(0.06, 0.18)
+		stars.append({
+			"pos": p, "size": sz, "bright": is_b, "phase": rng.randf_range(0, TAU),
+			"col": Color.from_hsv(hue, rng.randf_range(0.1, 0.45), rng.randf_range(0.5, 1.0), rng.randf_range(0.4, 0.95))
+		})
+
+	# 3. ゾーン3：恒星系ディープスペース（画像4：月・小惑星RTS戦線）
+	for i in range(1100):
+		var p := Vector2(rng.randf_range(1700, 4900), rng.randf_range(-2200, 400))
+		var sz := rng.randf_range(0.9, 3.4)
+		var is_b := (rng.randf() > 0.88)
+		var hue := rng.randf_range(0.52, 0.7) if rng.randf() > 0.35 else rng.randf_range(0.08, 0.18)
+		stars.append({
+			"pos": p, "size": sz, "bright": is_b, "phase": rng.randf_range(0, TAU),
+			"col": Color.from_hsv(hue, rng.randf_range(0.1, 0.4), rng.randf_range(0.5, 1.0), rng.randf_range(0.45, 0.95))
+		})
+
+	# 4. 幻想的な星雲ネビュラ塊（紫・青・マゼンタ・エメラルド）
+	for j in range(24):
 		nebulae.append({
-			"pos": Vector2(rng.randf_range(-5000, 5000), rng.randf_range(-5000, 5000)),
-			"radius": rng.randf_range(500.0, 1100.0),
-			"col": Color(rng.randf_range(0.1, 0.3), rng.randf_range(0.05, 0.2), rng.randf_range(0.3, 0.6), rng.randf_range(0.04, 0.11))
+			"pos": Vector2(rng.randf_range(-1200, 4500), rng.randf_range(-1800, 800)),
+			"radius": rng.randf_range(400.0, 950.0),
+			"col": Color(rng.randf_range(0.08, 0.25), rng.randf_range(0.04, 0.18), rng.randf_range(0.25, 0.55), rng.randf_range(0.04, 0.09))
 		})
 
 func _setup_game_systems() -> void:
@@ -160,11 +186,41 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	# 宇宙の深淵背景（暗黒色）
+	# 1. 幻想的な星雲ネビュラ（宇宙の深淵）
 	for neb in nebulae:
 		draw_circle(neb["pos"], neb["radius"], neb["col"])
+
+	# 2. 高密度な星野（瞬き・回折スパイク）
+	var t := Time.get_ticks_msec() * 0.005
 	for s in stars:
-		draw_circle(s["pos"], s["size"], s["col"])
+		var pulse: float = 0.8 + 0.3 * sin(t + s["phase"])
+		var sz: float = s["size"] * pulse
+		var col: Color = s["col"]
+		draw_circle(s["pos"], sz, col)
+		if s.get("bright", false):
+			var sp_col := Color(col.r, col.g, col.b, col.a * 0.7)
+			draw_line(s["pos"] - Vector2(sz * 2.5, 0), s["pos"] + Vector2(sz * 2.5, 0), sp_col, 1.0)
+			draw_line(s["pos"] - Vector2(0, sz * 2.5), s["pos"] + Vector2(0, sz * 2.5), sp_col, 1.0)
+
+	# 3. 画像3完全再現：右上背景の輝く連星（Twin Golden Suns）
+	if current_zoom <= 1.0 and current_zoom >= 0.3:
+		var sun1_pos := Vector2(660.0, -280.0)
+		draw_circle(sun1_pos, 52.0, Color(1.0, 0.75, 0.2, 0.22))
+		draw_circle(sun1_pos, 32.0, Color(1.0, 0.88, 0.4, 0.98))
+		draw_circle(sun1_pos, 18.0, Color(1.0, 0.98, 0.85, 1.0))
+
+		var sun2_pos := Vector2(690.0, 110.0)
+		draw_circle(sun2_pos, 42.0, Color(1.0, 0.7, 0.15, 0.2))
+		draw_circle(sun2_pos, 24.0, Color(1.0, 0.85, 0.35, 0.95))
+		draw_circle(sun2_pos, 13.0, Color(1.0, 0.96, 0.82, 1.0))
+
+	# 4. 画像4完全再現：ディープスペース軌道作戦グリッド
+	if current_zoom <= 0.55:
+		if moon_body != null and asteroid_fortress != null:
+			draw_arc(moon_body.position, 750.0, 0.0, TAU, 96, Color(0.2, 0.85, 0.5, 0.18), 1.5)
+			draw_arc(moon_body.position, 1150.0, 0.0, TAU, 96, Color(0.2, 0.85, 0.5, 0.12), 1.5)
+			draw_arc(asteroid_fortress.core_pos, 850.0, 0.0, TAU, 96, Color(0.9, 0.25, 0.35, 0.2), 1.5)
+			draw_arc(asteroid_fortress.core_pos, 1350.0, 0.0, TAU, 96, Color(0.9, 0.25, 0.35, 0.14), 1.5)
 
 func _handle_input(_delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_ESCAPE):
@@ -309,7 +365,7 @@ func _process_auto_test(delta: float) -> void:
 				if player != null:
 					player.surface_angle = -1.48
 					player.global_position = Vector2(cos(-1.48), sin(-1.48)) * (primary_planet.base_radius + 8.0)
-					camera.global_position = Vector2(cos(-1.42), sin(-1.42)) * (primary_planet.base_radius - 30.0)
+					camera.global_position = Vector2(80.0, -485.0)
 					camera.rotation = 0.0
 				auto_test_substep = 1
 				auto_test_timer = 0.0

@@ -160,9 +160,6 @@ func _draw() -> void:
 	# 5. 周囲の戦闘ドローン＆直線レーザー＆爆発＆ダメージ数値
 	_draw_drones_and_combat()
 
-	# 6. ボスシールドHUD
-	_draw_boss_hud()
-
 func _draw_giant_thrusters() -> void:
 	var angles := [-0.58, 0.58, PI - 0.58, PI + 0.58]
 	for a in angles:
@@ -170,56 +167,74 @@ func _draw_giant_thrusters() -> void:
 		var perp := Vector2(-dir.y, dir.x)
 		var base_p := dir * (base_radius - 12.0)
 
-		# ヘビーノズル構造（金属ベゼル・放熱フィン）
-		var n1 := base_p - perp * 32.0
-		var n2 := base_p + perp * 32.0
-		var n3 := base_p + dir * 46.0 + perp * 48.0
-		var n4 := base_p + dir * 46.0 - perp * 48.0
-		draw_colored_polygon(PackedVector2Array([n1, n2, n3, n4]), Color(0.24, 0.28, 0.35))
-		draw_polyline(PackedVector2Array([n1, n2, n3, n4, n1]), Color(0.55, 0.65, 0.8), 2.5)
+		# 1. ヘビーチタンノズル構造（重厚なベゼル・金属放熱フィン）
+		var n1 := base_p - perp * 38.0
+		var n2 := base_p + perp * 38.0
+		var n3 := base_p + dir * 52.0 + perp * 54.0
+		var n4 := base_p + dir * 52.0 - perp * 54.0
+		draw_colored_polygon(PackedVector2Array([n1, n2, n3, n4]), Color(0.2, 0.24, 0.32))
+		draw_polyline(PackedVector2Array([n1, n2, n3, n4, n1]), Color(0.6, 0.75, 0.95), 2.5)
 
-		# 映画的プラズマ火炎ジェット
-		var flame_len := 220.0 + sin(thruster_time + a * 4.0) * 45.0
-		var f_tip := base_p + dir * (46.0 + flame_len)
-		var f_left := base_p + dir * 46.0 - perp * 44.0
-		var f_right := base_p + dir * 46.0 + perp * 44.0
+		# ノズル開口部の赤熱予燃焼室
+		draw_line(n4, n3, Color(1.0, 0.65, 0.2), 4.0)
 
-		# 1. 外層広域青光グロー（コバルトブルー）
-		draw_colored_polygon(PackedVector2Array([f_left, f_right, f_tip]), Color(0.12, 0.45, 1.0, 0.45))
+		# 2. 映画的プラズマ火炎ジェット（湾曲フレア形状）
+		var flame_len := 280.0 + sin(thruster_time * 1.5 + a * 4.0) * 55.0
+		var f_tip := base_p + dir * (52.0 + flame_len)
+		var f_mid_l := base_p + dir * (52.0 + flame_len * 0.45) - perp * 58.0
+		var f_mid_r := base_p + dir * (52.0 + flame_len * 0.45) + perp * 58.0
 
-		# 2. 中層エレクトリックシアン
-		var f_mid_tip := base_p + dir * (46.0 + flame_len * 0.82)
-		draw_colored_polygon(PackedVector2Array([
-			base_p + dir * 46.0 - perp * 28.0,
-			base_p + dir * 46.0 + perp * 28.0,
-			f_mid_tip
-		]), Color(0.25, 0.9, 1.0, 0.85))
+		# 2.1. 最外層広域コバルトブループラズマオーラ
+		var outer_pts := PackedVector2Array([
+			n4 - perp * 16.0,
+			f_mid_l,
+			f_tip,
+			f_mid_r,
+			n3 + perp * 16.0
+		])
+		draw_colored_polygon(outer_pts, Color(0.1, 0.35, 0.95, 0.35))
 
-		# 3. 中心白熱プラズマコア
-		var f_core_tip := base_p + dir * (46.0 + flame_len * 0.58)
-		draw_colored_polygon(PackedVector2Array([
-			base_p + dir * 46.0 - perp * 14.0,
-			base_p + dir * 46.0 + perp * 14.0,
-			f_core_tip
-		]), Color(0.95, 0.98, 1.0, 0.98))
+		# 2.2. 中層エレクトリックシアン高密度ジェット
+		var mid_pts := PackedVector2Array([
+			base_p + dir * 52.0 - perp * 32.0,
+			base_p + dir * (52.0 + flame_len * 0.4) - perp * 36.0,
+			base_p + dir * (52.0 + flame_len * 0.85),
+			base_p + dir * (52.0 + flame_len * 0.4) + perp * 36.0,
+			base_p + dir * 52.0 + perp * 32.0
+		])
+		draw_colored_polygon(mid_pts, Color(0.25, 0.9, 1.0, 0.88))
 
-		# 4. マッハ衝撃波ダイヤモンド（Mach Shock Diamonds）
-		for d_idx in range(1, 4):
-			var d_center := base_p + dir * (46.0 + d_idx * (flame_len * 0.18))
-			var d_rad := 12.0 - d_idx * 2.5
+		# 2.3. 中心白熱超相対論的プラズマコア（白熱ゴールド〜純白）
+		var core_pts := PackedVector2Array([
+			base_p + dir * 52.0 - perp * 18.0,
+			base_p + dir * (52.0 + flame_len * 0.6),
+			base_p + dir * 52.0 + perp * 18.0
+		])
+		draw_colored_polygon(core_pts, Color(0.95, 0.98, 1.0, 0.98))
+
+		# 2.4. マッハ衝撃波ダイヤモンド（4連Mach Shock Diamonds）
+		for d_idx in range(1, 5):
+			var d_center := base_p + dir * (52.0 + d_idx * (flame_len * 0.16))
+			var d_rad := 15.0 - d_idx * 2.5
 			var diamond := PackedVector2Array([
 				d_center + dir * d_rad,
-				d_center + perp * (d_rad * 0.65),
+				d_center + perp * (d_rad * 0.7),
 				d_center - dir * d_rad,
-				d_center - perp * (d_rad * 0.65)
+				d_center - perp * (d_rad * 0.7)
 			])
 			draw_colored_polygon(diamond, Color(1, 1, 1, 0.95))
-			draw_polyline(diamond, Color(0.4, 0.95, 1.0), 1.5)
+			draw_polyline(diamond, Color(0.4, 0.95, 1.0), 1.8)
+
+		# 2.5. アナモルフィック・レンズフレア横一文字ストリーク（画像4の強烈な閃光再現）
+		var flare_center := base_p + dir * 54.0
+		draw_line(flare_center - perp * 110.0, flare_center + perp * 110.0, Color(0.3, 0.85, 1.0, 0.6), 2.5)
+		draw_line(flare_center - perp * 60.0, flare_center + perp * 60.0, Color(1, 1, 1, 0.95), 1.5)
+		draw_circle(flare_center, 14.0, Color(1, 1, 1, 0.9))
 
 	# スラスター放電スパーク
 	for sp in thruster_sparks:
 		var a: float = sp["life"] / sp["max_life"]
-		draw_circle(sp["pos"], 2.5 * a, Color(0.3, 0.95, 1.0, a))
+		draw_circle(sp["pos"], 3.0 * a, Color(0.35, 0.95, 1.0, a))
 
 func _draw_asteroid_crust() -> void:
 	var pts := PackedVector2Array()
@@ -345,18 +360,19 @@ func _draw_drones_and_combat() -> void:
 
 func _draw_boss_hud() -> void:
 	var font := ThemeDB.fallback_font
-	var bx := -180.0
-	var by := -base_radius - 75.0
-	var bw := 360.0
+	var bw := 380.0
+	var bh := 28.0
+	var bx := -bw * 0.5
+	var by := -base_radius - 135.0
 
-	# 敵母艦シールドHUD
-	draw_rect(Rect2(bx, by, bw, 26), Color(0.08, 0.04, 0.06, 0.92))
-	var border_col := Color(1.0, 0.9, 0.9) if boss_hit_flash > 0.0 else Color(0.9, 0.25, 0.3, 0.85)
-	draw_rect(Rect2(bx, by, bw, 26), border_col, false, 1.5)
+	# 完全に不透明なサイバー装甲フレーム（背後の戦闘エフェクトに一切遮られない）
+	draw_rect(Rect2(bx, by, bw, bh), Color(0.04, 0.02, 0.05, 0.98))
+	var border_col := Color(1.0, 0.9, 0.9) if boss_hit_flash > 0.0 else Color(0.95, 0.25, 0.35, 0.95)
+	draw_rect(Rect2(bx, by, bw, bh), border_col, false, 1.8)
 
-	draw_string(font, Vector2(bx + 12, by + 17), "⚠ HOSTILE MOTHER-HIVE: APEX SWARM", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.45, 0.45))
-	draw_string(font, Vector2(bx + bw - 95, by + 17), "SHIELD: 84%", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color(0.3, 0.9, 1.0))
+	draw_string(font, Vector2(bx + 12, by + 18), "⚠ HOSTILE MOTHER-HIVE: APEX SWARM", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.5, 0.5))
+	draw_string(font, Vector2(bx + bw - 95, by + 18), "SHIELD: 84%", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color(0.35, 0.95, 1.0))
 
 	# シールドゲージバー
-	draw_rect(Rect2(bx + 4, by + 21, bw - 8, 3), Color(0.2, 0.05, 0.08))
-	draw_rect(Rect2(bx + 4, by + 21, (bw - 8) * (boss_shield_hp / 100.0), 3), Color(0.3, 0.95, 1.0))
+	draw_rect(Rect2(bx + 4, by + 22, bw - 8, 4), Color(0.2, 0.05, 0.08))
+	draw_rect(Rect2(bx + 4, by + 22, (bw - 8) * (boss_shield_hp / 100.0), 4), Color(0.35, 0.95, 1.0))

@@ -238,15 +238,8 @@ func _process_effects(delta: float) -> void:
 			j += 1
 
 func _draw() -> void:
-	# 敵マザーシップの描画（外縁）
-	if mothership_alive:
-		var ms_col := Color(0.8, 0.2, 0.2, 0.9)
-		draw_rect(Rect2(mothership_pos.x - 40, mothership_pos.y - 25, 80, 50), ms_col)
-		draw_rect(Rect2(mothership_pos.x - 30, mothership_pos.y - 18, 60, 36), Color(0.2, 0.1, 0.1))
-		# HPバー
-		var hp_ratio := mothership_hp / mothership_max_hp
-		draw_rect(Rect2(mothership_pos.x - 40, mothership_pos.y - 35, 80, 6), Color(0.3, 0.3, 0.3))
-		draw_rect(Rect2(mothership_pos.x - 40, mothership_pos.y - 35, 80 * hp_ratio, 6), Color(1.0, 0.2, 0.2))
+	# 敵マザーシップは AsteroidFortress が詳細な小惑星要塞として描画するため、
+	# ここでの旧プレースホルダー赤色四角形の描画は行わない
 
 	# 艦隊ユニットの描画
 	for u in fleet_units:

@@ -449,7 +449,7 @@ func _draw_bottom_right_hud(ox: float, oy: float) -> void:
 	draw_rect(Rect2(ox + 60.0, oy + 14.0, 80.0, 15.0), Color(0.2, 0.8, 0.95))
 	draw_string(font, Vector2(ox + 145.0, oy + 26.0), str(therm_val) + "/256", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
-	# 📦 CARGO (実際の所持鉱石量と100%完全同期連動！)
+	# 📦 CARGO (実際の所持鉱石量と完全同期連動＆容量スケーリング)
 	var cur_ore: float = 0.0
 	var cur_si: float = 0.0
 	if game_state != null:
@@ -457,14 +457,32 @@ func _draw_bottom_right_hud(ox: float, oy: float) -> void:
 		cur_si = game_state.resources.get("silicon", 0.0)
 	var total_cargo: float = cur_ore + cur_si
 	var max_cargo: float = 96.0
+	if total_cargo > 96.0:
+		if total_cargo > 5000.0:
+			max_cargo = 10000.0
+		elif total_cargo > 2000.0:
+			max_cargo = 5000.0
+		elif total_cargo > 1000.0:
+			max_cargo = 2500.0
+		elif total_cargo > 500.0:
+			max_cargo = 1000.0
+		else:
+			max_cargo = 500.0
+
 	var fill_ratio := clampf(total_cargo / max_cargo, 0.0, 1.0)
-	var bar_width := 80.0 * fill_ratio
+	var bar_width := minf(80.0 * fill_ratio, 80.0)
 
 	draw_string(font, Vector2(ox + 8.0, oy + 50.0), "📦 CARGO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.65, 0.2))
 	draw_rect(Rect2(ox + 60.0, oy + 38.0, 80.0, 15.0), Color(0.18, 0.22, 0.26))
 	if bar_width > 0.0:
 		draw_rect(Rect2(ox + 60.0, oy + 38.0, bar_width, 15.0), Color(0.95, 0.6, 0.2))
-	draw_string(font, Vector2(ox + 145.0, oy + 50.0), str(int(total_cargo)) + "/96", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
+
+	var cargo_str := ""
+	if max_cargo >= 1000.0:
+		cargo_str = "%.1fk/%.0fk" % [total_cargo / 1000.0, max_cargo / 1000.0]
+	else:
+		cargo_str = str(int(total_cargo)) + "/" + str(int(max_cargo))
+	draw_string(font, Vector2(ox + 145.0, oy + 50.0), cargo_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
 func _draw_control_guide_bar(w: float, h: float) -> void:
 	var bar_w := 580.0

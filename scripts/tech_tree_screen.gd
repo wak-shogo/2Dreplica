@@ -252,9 +252,6 @@ func _draw() -> void:
 	# 8. アップグレードパーティクル
 	_draw_upgrade_sparks()
 
-	# 9. 選択ノード直横のスマート浮遊HUDバッジ
-	_draw_node_hud_badge()
-
 func _draw_mobile_footer_guide(w: float, h: float) -> void:
 	var font := ThemeDB.fallback_font
 
@@ -552,50 +549,105 @@ func _draw_tech_tree_section(split_x: float, _w: float, _h: float) -> void:
 			draw_string(font, Vector2(pos.x - 60, pos.y - 22), node["title"], HORIZONTAL_ALIGNMENT_CENTER, 120, 8, txt_col)
 
 func _draw_hologram_probe(center: Vector2, rot: float, scale_f: float = 1.0) -> void:
-	# 3D風回転ホログラムプローブ
+	# 画像2完全再現：3D立体等角回転ホログラムプローブ＆スキャンビーム
 	var cos_r := cos(rot)
 	var sin_r := sin(rot)
-	var col := Color(0.3, 0.9, 1.0, 0.9)
-	
-	# 円筒ボディ
-	var body_w := 28.0 * scale_f
-	var body_h := 38.0 * scale_f
-	var p1 := center + Vector2(-body_w * cos_r, -body_h)
-	var p2 := center + Vector2(body_w * cos_r, -body_h)
-	var p3 := center + Vector2(body_w * cos_r, body_h * 0.4)
-	var p4 := center + Vector2(-body_w * cos_r, body_h * 0.4)
-	draw_polyline(PackedVector2Array([p1, p2, p3, p4, p1]), col, 1.8)
+	var col := Color(0.35, 0.95, 1.0, 0.95)
+	var dim_col := Color(0.15, 0.6, 0.85, 0.6)
 
-	# ソーラーパネル翼
-	var wing_w := 45.0 * scale_f * absf(sin_r)
-	var w1 := center + Vector2(-body_w * cos_r - wing_w, -10 * scale_f)
-	var w2 := center + Vector2(-body_w * cos_r, -10 * scale_f)
-	var w3 := center + Vector2(-body_w * cos_r, 15 * scale_f)
-	var w4 := center + Vector2(-body_w * cos_r - wing_w, 15 * scale_f)
-	draw_polyline(PackedVector2Array([w1, w2, w3, w4, w1]), Color(0.4, 0.7, 1.0, 0.8), 1.2)
+	# 1. 六角柱メインボディ（3Dアイソメトリックワイヤーフレーム）
+	var bw := 34.0 * scale_f
+	var bh := 22.0 * scale_f
+	var front_c := center + Vector2(sin_r * 18.0 * scale_f, cos_r * 8.0 * scale_f)
+	var rear_c := center - Vector2(sin_r * 18.0 * scale_f, cos_r * 8.0 * scale_f)
 
-	# アンテナ
-	draw_line(center + Vector2(0, -body_h), center + Vector2(sin_r * 15.0, -body_h - 22.0 * scale_f), Color(0.5, 1.0, 0.9), 1.5)
-	draw_circle(center + Vector2(sin_r * 15.0, -body_h - 22.0 * scale_f), 3.0, Color(0.5, 1.0, 0.9))
+	# 前後キャップ
+	var cap_front := PackedVector2Array([
+		front_c + Vector2(-bw * 0.4 * cos_r, -bh),
+		front_c + Vector2(bw * 0.4 * cos_r, -bh),
+		front_c + Vector2(bw * 0.7 * cos_r, 0),
+		front_c + Vector2(bw * 0.4 * cos_r, bh),
+		front_c + Vector2(-bw * 0.4 * cos_r, bh),
+		front_c + Vector2(-bw * 0.7 * cos_r, 0)
+	])
+	var cap_rear := PackedVector2Array([
+		rear_c + Vector2(-bw * 0.4 * cos_r, -bh),
+		rear_c + Vector2(bw * 0.4 * cos_r, -bh),
+		rear_c + Vector2(bw * 0.7 * cos_r, 0),
+		rear_c + Vector2(bw * 0.4 * cos_r, bh),
+		rear_c + Vector2(-bw * 0.4 * cos_r, bh),
+		rear_c + Vector2(-bw * 0.7 * cos_r, 0)
+	])
 
-	# スラスターノズル
-	var n1 := center + Vector2(-12.0 * cos_r, body_h * 0.4)
-	var n2 := center + Vector2(12.0 * cos_r, body_h * 0.4)
-	var n3 := center + Vector2(8.0 * cos_r, body_h * 0.8)
-	var n4 := center + Vector2(-8.0 * cos_r, body_h * 0.8)
-	draw_polyline(PackedVector2Array([n1, n2, n3, n4, n1]), col, 1.5)
+	# 接続稜線
+	for i in range(6):
+		draw_line(cap_front[i], cap_rear[i], dim_col, 1.2)
+	draw_polyline(PackedVector2Array(Array(cap_front) + [cap_front[0]]), col, 1.8)
+	draw_polyline(PackedVector2Array(Array(cap_rear) + [cap_rear[0]]), col, 1.5)
+
+	# 2. ソーラーパネル翼（格子グリッド付き）
+	var wing_span := 55.0 * scale_f * absf(cos_r)
+	var w_left_tip := center + Vector2(-bw * 0.7 * absf(cos_r) - wing_span, -sin_r * 12.0)
+	var w_left_root := center + Vector2(-bw * 0.7 * absf(cos_r), 0)
+	draw_line(w_left_root, w_left_tip, col, 2.0)
+	draw_rect(Rect2(w_left_tip.x, w_left_tip.y - 12.0 * scale_f, wing_span, 24.0 * scale_f), Color(0.2, 0.75, 1.0, 0.4), false, 1.2)
+	for g in range(1, 4):
+		var gx := w_left_tip.x + g * (wing_span / 4.0)
+		draw_line(Vector2(gx, w_left_tip.y - 12.0 * scale_f), Vector2(gx, w_left_tip.y + 12.0 * scale_f), dim_col, 1.0)
+
+	var w_right_tip := center + Vector2(bw * 0.7 * absf(cos_r) + wing_span, sin_r * 12.0)
+	var w_right_root := center + Vector2(bw * 0.7 * absf(cos_r), 0)
+	draw_line(w_right_root, w_right_tip, col, 2.0)
+	draw_rect(Rect2(w_right_root.x, w_right_tip.y - 12.0 * scale_f, wing_span, 24.0 * scale_f), Color(0.2, 0.75, 1.0, 0.4), false, 1.2)
+	for g in range(1, 4):
+		var gx := w_right_root.x + g * (wing_span / 4.0)
+		draw_line(Vector2(gx, w_right_tip.y - 12.0 * scale_f), Vector2(gx, w_right_tip.y + 12.0 * scale_f), dim_col, 1.0)
+
+	# 3. 前部採掘レーザー砲身＆フォーカスリング
+	var laser_tip := front_c + Vector2(sin_r * 26.0 * scale_f, cos_r * 12.0 * scale_f)
+	draw_line(front_c, laser_tip, Color(0.4, 1.0, 0.8), 2.5)
+	draw_circle(laser_tip, 3.5, Color(1, 1, 1))
+
+	# 4. 後部ツインスラスター
+	var noz_1 := rear_c + Vector2(-10.0 * cos_r, 14.0 * scale_f)
+	var noz_2 := rear_c + Vector2(10.0 * cos_r, 14.0 * scale_f)
+	draw_circle(noz_1, 4.0, Color(0.3, 0.9, 1.0, 0.8))
+	draw_circle(noz_2, 4.0, Color(0.3, 0.9, 1.0, 0.8))
+
+	# 5. 上下走査ホログラムスキャンレーザー
+	var scan_y := center.y - 50.0 * scale_f + fmod(Time.get_ticks_msec() * 0.06, 100.0 * scale_f)
+	draw_line(Vector2(center.x - 75.0 * scale_f, scan_y), Vector2(center.x + 75.0 * scale_f, scan_y), Color(0.3, 1.0, 0.8, 0.75), 1.8)
 
 func _draw_mini_thruster(center: Vector2) -> void:
-	draw_rect(Rect2(center.x - 14, center.y - 12, 16, 24), Color(0.2, 0.5, 0.3))
-	draw_polygon(PackedVector2Array([
-		Vector2(center.x + 2, center.y - 10), Vector2(center.x + 16, center.y - 16),
-		Vector2(center.x + 16, center.y + 16), Vector2(center.x + 2, center.y + 10)
-	]), [Color(0.3, 0.9, 0.5)])
+	# 画像2右側モジュールアイコン：精密メカニカルスラスター
+	# マウントブラケット
+	draw_rect(Rect2(center.x - 22, center.y - 16, 18, 32), Color(0.18, 0.28, 0.24))
+	draw_rect(Rect2(center.x - 22, center.y - 16, 18, 32), Color(0.35, 0.9, 0.55), false, 1.5)
+	# ツインノズルベル
+	for ny in [-8.0, 8.0]:
+		var n_base := Vector2(center.x - 4, center.y + ny)
+		draw_polygon(PackedVector2Array([
+			n_base + Vector2(0, -6), Vector2(center.x + 18, center.y + ny - 10),
+			Vector2(center.x + 18, center.y + ny + 10), n_base + Vector2(0, 6)
+		]), [Color(0.22, 0.35, 0.28)])
+		draw_polyline(PackedVector2Array([
+			n_base + Vector2(0, -6), Vector2(center.x + 18, center.y + ny - 10),
+			Vector2(center.x + 18, center.y + ny + 10), n_base + Vector2(0, 6)
+		]), Color(0.4, 1.0, 0.6), 1.5)
+		draw_circle(Vector2(center.x + 18, center.y + ny), 3.0, Color(0.6, 1.0, 0.8))
 
 func _draw_mini_laser(center: Vector2) -> void:
-	draw_rect(Rect2(center.x - 16, center.y - 8, 18, 16), Color(0.2, 0.5, 0.3))
-	draw_rect(Rect2(center.x + 2, center.y - 3, 22, 6), Color(0.4, 1.0, 0.6))
-	draw_circle(Vector2(center.x + 24, center.y), 4.0, Color(1, 1, 1))
+	# 画像2右側モジュールアイコン：高精度採掘レーザー砲塔
+	# ターレットハウジング
+	draw_rect(Rect2(center.x - 20, center.y - 14, 22, 28), Color(0.18, 0.28, 0.24))
+	draw_rect(Rect2(center.x - 20, center.y - 14, 22, 28), Color(0.35, 0.9, 0.55), false, 1.5)
+	# 延長バレル＆電磁加速コイル
+	draw_line(Vector2(center.x + 2, center.y), Vector2(center.x + 26, center.y), Color(0.3, 0.45, 0.38), 7.0)
+	for c_x in [8.0, 14.0, 20.0]:
+		draw_line(Vector2(center.x + c_x, center.y - 5), Vector2(center.x + c_x, center.y + 5), Color(0.4, 1.0, 0.6), 2.0)
+	# マズルダイオード発光
+	draw_circle(Vector2(center.x + 27, center.y), 4.5, Color(1, 1, 1))
+	draw_circle(Vector2(center.x + 27, center.y), 8.0, Color(0.3, 1.0, 0.6, 0.6))
 
 func _draw_oscilloscope(ox: float, oy: float, w: float, h: float) -> void:
 	draw_rect(Rect2(ox, oy, w, h), Color(0.03, 0.06, 0.08, 0.9))
