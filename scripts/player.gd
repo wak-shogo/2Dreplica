@@ -93,12 +93,16 @@ func _handle_input(delta: float) -> void:
 		
 		# 接地中は水平速度をリセット
 		velocity_vector = Vector2(-sin(surface_angle), cos(surface_angle)) * (move_dir * move_speed)
+		if move_dir != 0.0 and game_state != null:
+			game_state.record_move(delta)
 	else:
 		# 宇宙空間での姿勢制御（A/Dでトルクまたは左右噴射）
 		if move_dir != 0.0 and current_planet != null:
 			var normal := (global_position - current_planet.global_position).normalized()
 			var tangent := Vector2(-normal.y, normal.x)
 			velocity_vector += tangent * move_dir * 120.0 * delta
+			if game_state != null:
+				game_state.record_move(delta)
 
 	# スラスター噴射
 	if is_thrusting and game_state != null and game_state.resources["energy"] > 0.0:
@@ -184,6 +188,7 @@ func _execute_mining(delta: float) -> void:
 		var res_name: String = result.get("resource", "iron")
 		var amount: float = result.get("amount", 3.0)
 		game_state.add_resource(res_name, amount)
+		game_state.record_mining(amount)
 		game_state.play_sfx(SoundGenerator.create_laser(0.12, 0.2))
 
 		# 浮遊リソース取得ポップアップ演出
@@ -254,13 +259,17 @@ func _draw() -> void:
 		draw_circle(to_local(p["pos"]), 2.0, Color(1.0, 0.9, 0.3, alpha))
 
 	# 浮遊リソース取得テキスト
-	var font := ThemeDB.fallback_font
+	var font: Font = null
+	if ResourceLoader.exists("res://assets/fonts/DotGothic16-Regular.ttf"):
+		font = load("res://assets/fonts/DotGothic16-Regular.ttf")
+	if font == null:
+		font = ThemeDB.fallback_font
 	for ft in floating_texts:
 		var a: float = ft["life"] / ft["max_life"]
 		var c: Color = ft["col"]
 		c.a = a
 		var lpos := to_local(ft["pos"])
-		draw_string(font, lpos, ft["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 11, c)
+		draw_string(font, lpos, ft["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 15, c)
 
 	# フォン・ノイマン・プローブ（画像1・2完全準拠：高密度ピクセルアートメカ）
 	# 外郭チタン装甲フレーム

@@ -55,10 +55,25 @@ var current_phase: int = Phase.PHASE_1_SURVIVAL
 var construction_stage: int = 0
 signal stage_changed(new_stage: int)
 
+# チュートリアル状態管理
+enum TutorialStep {
+	STEP_0_MOVE = 0,         # 移動（ジョイスティック / ドラッグ）
+	STEP_1_MINE = 1,         # 採掘（岩盤タップ / 採掘ボタン）
+	STEP_2_BUILD_SMELTER = 2,# 建設（精錬炉の配備）
+	STEP_3_TECH_TREE = 3,    # テックツリー（3Dプリント・自己強化）
+	STEP_4_PINCH_ZOOM = 4,   # ピンチズーム（惑星全景・軌道偵察）
+	COMPLETED = 5            # チュートリアル完了（自由開拓モード）
+}
+var current_tutorial_step: int = TutorialStep.STEP_0_MOVE
+var tutorial_move_time: float = 0.0
+var tutorial_mined_ore: float = 0.0
+var is_tutorial_visible: bool = true
+signal tutorial_step_changed(step: int)
+
 # ステージごとの建設要件
 var stage_requirements := [
-	{"name": "SURFACE SMELTER", "ore": 30.0, "silicon": 10.0, "desc": "Construct Smelter for automatic metal refining."},
-	{"name": "CONVEYOR & EJECTOR", "ore": 80.0, "silicon": 40.0, "desc": "Deploy tunnel logistics & ballistic ore catapults."},
+	{"name": "SURFACE SMELTER", "ore": 3.0, "desc": "Construct Smelter for automatic metal refining."},
+	{"name": "CONVEYOR & EJECTOR", "ore": 60.0, "silicon": 30.0, "desc": "Deploy tunnel logistics & ballistic ore catapults."},
 	{"name": "DUAL 3D PRINTERS", "ore": 180.0, "silicon": 100.0, "nano": 50.0, "desc": "Assemble heavy gantry 3D nano-printers."},
 	{"name": "ORBITAL ROCKET", "ore": 400.0, "silicon": 200.0, "nano": 100.0, "desc": "Launch rocket into planetary orbit."},
 	{"name": "LUNAR MASS DRIVER", "silicon": 600.0, "titanium": 300.0, "nano": 200.0, "desc": "Construct mass driver & asteroid shipyard."}
@@ -206,6 +221,10 @@ func build_next_stage() -> bool:
 	resources_changed.emit()
 	play_sfx(SoundGenerator.create_build())
 
+	# チュートリアル判定
+	if current_tutorial_step == TutorialStep.STEP_2_BUILD_SMELTER:
+		set_tutorial_step(TutorialStep.STEP_3_TECH_TREE)
+
 	# ステージ進行に伴うフェーズ遷移
 	if construction_stage == 1:
 		unlocked_buildings["smelter"] = true
@@ -273,3 +292,21 @@ func cheat_unlock_phase(target_phase: int) -> void:
 			add_resource("titanium", 1000.0)
 			add_resource("uranium", 500.0)
 			threat_level = 65.0
+
+func record_move(delta: float) -> void:
+	if current_tutorial_step == TutorialStep.STEP_0_MOVE:
+		tutorial_move_time += delta
+		if tutorial_move_time >= 1.2:
+			set_tutorial_step(TutorialStep.STEP_1_MINE)
+
+func record_mining(amount: float) -> void:
+	if current_tutorial_step == TutorialStep.STEP_1_MINE:
+		tutorial_mined_ore += amount
+		if tutorial_mined_ore >= 3.0:
+			set_tutorial_step(TutorialStep.STEP_2_BUILD_SMELTER)
+
+func set_tutorial_step(step: int) -> void:
+	if current_tutorial_step != step:
+		current_tutorial_step = step
+		tutorial_step_changed.emit(step)
+		play_sfx(SoundGenerator.create_beep(880.0, 0.12, 0.3))

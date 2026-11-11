@@ -175,6 +175,7 @@ func _setup_ui() -> void:
 	hud_system.player = player
 	hud_system.primary_planet = primary_planet
 	hud_system.camera = camera
+	hud_system.main_node = self
 	hud_system.zoom_preset_requested.connect(_on_zoom_preset)
 	hud_layer.add_child(hud_system)
 

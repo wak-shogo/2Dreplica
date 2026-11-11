@@ -19,6 +19,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=6
 
+[gui]
+
+theme/custom_font="res://assets/fonts/DotGothic16-Regular.ttf"
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true

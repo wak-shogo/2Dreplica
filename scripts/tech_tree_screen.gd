@@ -16,6 +16,8 @@ var tree_nodes: Array[Dictionary] = []
 var selected_node_id: String = "root_thruster"
 var hovered_node: Dictionary = {}
 
+var font: Font = null
+
 var mobile_tab: int = 1 # 0: 3D Nano-Printer, 1: Tech Tree
 var tab_printer_rect: Rect2 = Rect2()
 var tab_tree_rect: Rect2 = Rect2()
@@ -24,10 +26,11 @@ func _get_node_screen_pos(node: Dictionary, w: float, h: float) -> Vector2:
 	if h <= w:
 		return node["pos"]
 	var orig_p: Vector2 = node["pos"]
-	var scale := clampf((w - 50.0) / 560.0, 0.52, 0.95)
-	var x_offset := (w - 540.0 * scale) * 0.5
-	var y_offset := 96.0
-	return Vector2(x_offset + (orig_p.x - 640.0) * scale, y_offset + (orig_p.y - 70.0) * scale)
+	var scale_x := clampf((w - 40.0) / 580.0, 0.6, 0.95)
+	var scale_y := clampf((h - 260.0) / 620.0, 0.9, 1.45)
+	var x_offset := (w - 530.0 * scale_x) * 0.5
+	var y_offset := 105.0
+	return Vector2(x_offset + (orig_p.x - 640.0) * scale_x, y_offset + (orig_p.y - 100.0) * scale_y)
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
@@ -47,6 +50,10 @@ func _load_texture_safe(res_path: String) -> Texture2D:
 
 func _ready() -> void:
 	visible = false
+	if ResourceLoader.exists("res://assets/fonts/DotGothic16-Regular.ttf"):
+		font = load("res://assets/fonts/DotGothic16-Regular.ttf")
+	if font == null:
+		font = ThemeDB.fallback_font
 
 func _process(delta: float) -> void:
 	if not visible:
@@ -153,6 +160,8 @@ func _upgrade_node(node: Dictionary) -> void:
 			for other in tree_nodes:
 				if other["parents"].has(node["id"]):
 					other["unlocked"] = true
+			if game_state.current_tutorial_step == GameState.TutorialStep.STEP_3_TECH_TREE:
+				game_state.set_tutorial_step(GameState.TutorialStep.STEP_4_PINCH_ZOOM)
 		var vp_sz := get_viewport().get_visible_rect().size
 		var p: Vector2 = _get_node_screen_pos(node, vp_sz.x, vp_sz.y)
 		for i in range(12):
@@ -169,87 +178,87 @@ func _init_tree_nodes() -> void:
 	# 画像2のピクセルアート背景に100%完全一致させた幾何学的中心座標（実測補正値）
 	tree_nodes.append({
 		"id": "root_thruster", "title": "THRUSTERS", "pos": Vector2(683.1, 215.5),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🚀", "parents": [], "color_type": "orange"
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "THR", "parents": [], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "thruster_eff", "title": "THRUSTER EFFICIENCY", "pos": Vector2(769.3, 115.1),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🔥", "parents": ["root_thruster"], "color_type": "orange"
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "EFF", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "mining_speed", "title": "MINING SPEED", "pos": Vector2(861.9, 211.6),
-		"lvl": 19, "max_lvl": 50, "unlocked": true, "icon": "⚡", "parents": ["root_thruster"], "color_type": "orange"
+		"lvl": 19, "max_lvl": 50, "unlocked": true, "icon": "MIN", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "core_drill", "title": "DEEP DRILL", "pos": Vector2(862.3, 115.6),
-		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "⚙️", "parents": ["thruster_eff"], "color_type": "orange"
+		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "DRL", "parents": ["thruster_eff"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "nano_strength", "title": "NANO-MATERIAL STRENGTH", "pos": Vector2(959.8, 113.8),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "💠", "parents": ["core_drill"], "color_type": "cyan"
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "MAT", "parents": ["core_drill"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "scan_range", "title": "SCAN RANGE", "pos": Vector2(960.6, 279.9),
-		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "📡", "parents": ["mining_speed"], "color_type": "cyan"
+		"lvl": 8, "max_lvl": 50, "unlocked": true, "icon": "SCN", "parents": ["mining_speed"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "scan_range_2", "title": "SCAN RANGE II", "pos": Vector2(1060.0, 296.4),
-		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "🛰️", "parents": ["scan_range"], "color_type": "cyan"
+		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "SCN2", "parents": ["scan_range"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "scan_range_1", "title": "SCAN RANGE I", "pos": Vector2(1060.3, 115.5),
-		"lvl": 15, "max_lvl": 50, "unlocked": true, "icon": "💎", "parents": ["nano_strength"], "color_type": "cyan"
+		"lvl": 15, "max_lvl": 50, "unlocked": true, "icon": "SCN1", "parents": ["nano_strength"], "color_type": "cyan"
 	})
 	
 	# 下段ブランチ
 	tree_nodes.append({
 		"id": "mat_eff", "title": "MATERIAL EFFICIENCY", "pos": Vector2(656.0, 357.9),
-		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "📦", "parents": ["root_thruster"], "color_type": "orange"
+		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "MAT", "parents": ["root_thruster"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "mined_speed_1", "title": "MINING POWER I", "pos": Vector2(861.5, 360.7),
-		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "🎯", "parents": ["mining_speed"], "color_type": "orange"
+		"lvl": 10, "max_lvl": 50, "unlocked": true, "icon": "MIN1", "parents": ["mining_speed"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "nano_strength_2", "title": "NANO-ARMOR", "pos": Vector2(961.0, 363.7),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "🛡️", "parents": ["scan_range"], "color_type": "cyan"
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "ARM", "parents": ["scan_range"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "nano_core", "title": "NANO-CORE MATRIX", "pos": Vector2(1058.4, 425.5),
-		"lvl": 11, "max_lvl": 50, "unlocked": true, "icon": "🛸", "parents": ["scan_range_2"], "color_type": "cyan"
+		"lvl": 11, "max_lvl": 50, "unlocked": true, "icon": "COR", "parents": ["scan_range_2"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "plasma_cutter", "title": "PLASMA CUTTER", "pos": Vector2(861.9, 551.0),
-		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "💥", "parents": ["mined_speed_1"], "color_type": "orange"
+		"lvl": 14, "max_lvl": 50, "unlocked": true, "icon": "PLZ", "parents": ["mined_speed_1"], "color_type": "orange"
 	})
 	tree_nodes.append({
 		"id": "scan_range_sub", "title": "SUB-SCANNER", "pos": Vector2(960.9, 540.5),
-		"lvl": 5, "max_lvl": 50, "unlocked": true, "icon": "🔍", "parents": ["nano_strength_2"], "color_type": "cyan"
+		"lvl": 5, "max_lvl": 50, "unlocked": true, "icon": "SUB", "parents": ["nano_strength_2"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "mining_speed_sub", "title": "SELF-REPLICATION", "pos": Vector2(1059.8, 554.2),
-		"lvl": 9, "max_lvl": 50, "unlocked": true, "icon": "🔄", "parents": ["nano_core"], "color_type": "cyan"
+		"lvl": 9, "max_lvl": 50, "unlocked": true, "icon": "REP", "parents": ["nano_core"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "quantum_sensor", "title": "QUANTUM SENSOR", "pos": Vector2(960.6, 649.6),
-		"lvl": 1, "max_lvl": 50, "unlocked": true, "icon": "⚛️", "parents": ["scan_range_sub"], "color_type": "cyan"
+		"lvl": 1, "max_lvl": 50, "unlocked": true, "icon": "QNT", "parents": ["scan_range_sub"], "color_type": "cyan"
 	})
 
 	# 未解除ロックノード（画像2右端）
 	tree_nodes.append({
 		"id": "lock_1", "title": "LOCKED", "pos": Vector2(1177.2, 195.4),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["scan_range_1"], "color_type": "cyan"
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "LCK", "parents": ["scan_range_1"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "lock_2", "title": "LOCKED", "pos": Vector2(1161.0, 310.0),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["scan_range_2"], "color_type": "cyan"
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "LCK", "parents": ["scan_range_2"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "lock_3", "title": "LOCKED", "pos": Vector2(1161.1, 423.4),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["nano_core"], "color_type": "cyan"
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "LCK", "parents": ["nano_core"], "color_type": "cyan"
 	})
 	tree_nodes.append({
 		"id": "lock_4", "title": "LOCKED", "pos": Vector2(1161.0, 530.0),
-		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "🔒", "parents": ["mining_speed_sub"], "color_type": "cyan"
+		"lvl": 0, "max_lvl": 50, "unlocked": false, "icon": "LCK", "parents": ["mining_speed_sub"], "color_type": "cyan"
 	})
 
 func _draw() -> void:
@@ -262,27 +271,35 @@ func _draw() -> void:
 	var is_portrait := h > w
 
 	# 1. 完全プロシージャル・サイバーホログラム背景＆グリッド
-	draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.05, 0.09, 0.98))
+	draw_rect(Rect2(0, 0, w, h), Color(0.02, 0.04, 0.08, 1.0))
+
+	# 背景の薄いサイバーグリッドライン
+	var grid_step := 40.0
+	for gx in range(0, int(w), int(grid_step)):
+		draw_line(Vector2(gx, 0), Vector2(gx, h), Color(0.06, 0.12, 0.18, 0.5), 1.0)
+	for gy in range(0, int(h), int(grid_step)):
+		draw_line(Vector2(0, gy), Vector2(w, gy), Color(0.06, 0.12, 0.18, 0.5), 1.0)
 
 	# 2. 上部ヘッダー（ライブリソース完全同期）
 	_draw_header(w)
 
 	if is_portrait:
-		# スマホ縦画面：上部タブ [🖨 3D NANO-PRINTER] / [🌳 TECH TREE]
+		# スマホ縦画面：上部タブ [3Dプリンター] / [テックツリー]
+		var use_font: Font = font if font != null else ThemeDB.fallback_font
 		var tab_w := (w - 26.0) * 0.5
-		tab_printer_rect = Rect2(10.0, 48.0, tab_w, 32.0)
-		tab_tree_rect = Rect2(10.0 + tab_w + 6.0, 48.0, tab_w, 32.0)
+		tab_printer_rect = Rect2(10.0, 48.0, tab_w, 36.0)
+		tab_tree_rect = Rect2(10.0 + tab_w + 6.0, 48.0, tab_w, 36.0)
 
 		# タブ描画
 		var p_col := Color(0.2, 0.8, 1.0, 0.95) if mobile_tab == 0 else Color(0.12, 0.22, 0.3, 0.8)
 		var t_col := Color(1.0, 0.7, 0.2, 0.95) if mobile_tab == 1 else Color(0.12, 0.22, 0.3, 0.8)
 		draw_rect(tab_printer_rect, Color(0.06, 0.1, 0.16, 0.9))
-		draw_rect(tab_printer_rect, p_col, false, 1.8 if mobile_tab == 0 else 1.0)
-		draw_string(ThemeDB.fallback_font, Vector2(tab_printer_rect.position.x, tab_printer_rect.position.y + 21.0), "🖨 3D NANO-PRINTER", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 11, p_col)
+		draw_rect(tab_printer_rect, p_col, false, 2.0 if mobile_tab == 0 else 1.0)
+		draw_string(use_font, Vector2(tab_printer_rect.position.x, tab_printer_rect.position.y + 24.0), "3Dナノプリンター", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 14, p_col)
 
 		draw_rect(tab_tree_rect, Color(0.06, 0.1, 0.16, 0.9))
-		draw_rect(tab_tree_rect, t_col, false, 1.8 if mobile_tab == 1 else 1.0)
-		draw_string(ThemeDB.fallback_font, Vector2(tab_tree_rect.position.x, tab_tree_rect.position.y + 21.0), "🌳 TECH TREE", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 11, t_col)
+		draw_rect(tab_tree_rect, t_col, false, 2.0 if mobile_tab == 1 else 1.0)
+		draw_string(use_font, Vector2(tab_tree_rect.position.x, tab_tree_rect.position.y + 24.0), "開発テックツリー", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 14, t_col)
 
 		if mobile_tab == 0:
 			_draw_nano_printer_section_portrait(w, h)
@@ -312,27 +329,27 @@ func _draw() -> void:
 	_draw_upgrade_sparks()
 
 func _draw_mobile_footer_guide(w: float, h: float) -> void:
-	var font := ThemeDB.fallback_font
+	var use_font: Font = font if font != null else ThemeDB.fallback_font
 	var is_portrait := h > w
 
 	# 最下部フッターパネル
 	var fw := minf(w - 20.0, 720.0)
-	var fh := 32.0
+	var fh := 36.0
 	var fx := (w - fw) * 0.5
-	var fy := h - 40.0
+	var fy := h - 42.0
 
 	draw_rect(Rect2(fx, fy, fw, fh), Color(0.04, 0.07, 0.12, 1.0))
 	draw_rect(Rect2(fx, fy, fw, fh), Color(0.25, 0.65, 0.9, 0.95), false, 1.5)
 
-	var guide_txt := "👆 TAP NODE TO SELECT & UPGRADE | ✕ CLOSE" if is_portrait else "👆 TAP / [LMB] SELECT   |   ⚡ TAP / [SPACE] UPGRADE   |   ✕ TAP / [ESC] CLOSE"
-	draw_string(font, Vector2(fx, fy + 21.0), guide_txt, HORIZONTAL_ALIGNMENT_CENTER, fw, 10 if is_portrait else 11, Color(0.4, 0.95, 1.0))
+	var guide_txt := "ノードをタップして選択・強化 | 画面外または閉じるで戻る" if is_portrait else "ノード選択: クリック/タップ | 強化: スペース/タップ | 戻る: ESC"
+	draw_string(use_font, Vector2(fx, fy + 24.0), guide_txt, HORIZONTAL_ALIGNMENT_CENTER, fw, 13 if is_portrait else 13, Color(0.4, 0.95, 1.0))
 
-	# 右上閉じるボタン [✕ CLOSE / EXIT]
-	var cb_w := 90.0 if is_portrait else 105.0
-	var close_rect := Rect2(w - cb_w - 10.0, 8.0, cb_w, 26.0)
+	# 右上閉じるボタン
+	var cb_w := 95.0 if is_portrait else 110.0
+	var close_rect := Rect2(w - cb_w - 10.0, 8.0, cb_w, 28.0)
 	draw_rect(close_rect, Color(0.12, 0.04, 0.06, 1.0))
-	draw_rect(close_rect, Color(1.0, 0.4, 0.4, 0.95), false, 1.2)
-	draw_string(font, Vector2(close_rect.position.x, close_rect.position.y + 17.0), "✕ CLOSE", HORIZONTAL_ALIGNMENT_CENTER, close_rect.size.x, 10, Color(1.0, 0.6, 0.6))
+	draw_rect(close_rect, Color(1.0, 0.4, 0.4, 0.95), false, 1.5)
+	draw_string(use_font, Vector2(close_rect.position.x, close_rect.position.y + 19.0), "閉じる [×]", HORIZONTAL_ALIGNMENT_CENTER, close_rect.size.x, 13, Color(1.0, 0.7, 0.7))
 
 func _draw_live_oscilloscope() -> void:
 	# 左下 EM110 モニター画面 (x: 36 to 110, y: 628 to 678)
@@ -425,7 +442,7 @@ func _draw_header(w: float) -> void:
 	draw_rect(Rect2(0, 0, w, 44), Color(0.06, 0.08, 0.12, 0.98))
 	draw_line(Vector2(0, 44), Vector2(w, 44), Color(0.2, 0.5, 0.75), 1.5)
 
-	var font := ThemeDB.fallback_font
+	var use_font: Font = font if font != null else ThemeDB.fallback_font
 
 	var cur_e := 2025
 	var max_e := 1800
@@ -441,35 +458,35 @@ func _draw_header(w: float) -> void:
 	var cb_rect := Rect2(w - cb_w - 10.0, 10.0, cb_w, 24.0)
 	draw_rect(cb_rect, Color(0.15, 0.05, 0.08, 0.9))
 	draw_rect(cb_rect, Color(1.0, 0.4, 0.4, 0.9), false, 1.2)
-	draw_string(font, Vector2(cb_rect.position.x, cb_rect.position.y + 16.0), "✕ CLOSE", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 10, Color(1.0, 0.65, 0.65))
+	draw_string(use_font, Vector2(cb_rect.position.x, cb_rect.position.y + 17.0), "閉じる [×]", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 12, Color(1.0, 0.65, 0.65))
 
 	if w < 600.0:
 		# スマホ縦画面：コンパクトなリソース表示
 		var seg_w := (w - cb_w - 24.0) / 3.0
-		draw_string(font, Vector2(8, 27), "⚡" + str(cur_e), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(1.0, 0.85, 0.2))
-		draw_string(font, Vector2(8 + seg_w, 27), "⚙" + str(cur_nano), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(0.3, 0.9, 0.85))
-		draw_string(font, Vector2(8 + seg_w * 2, 27), "💾" + str(cur_data), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(0.7, 0.5, 1.0))
+		draw_string(use_font, Vector2(8, 27), "電力:" + str(cur_e), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(1.0, 0.85, 0.2))
+		draw_string(use_font, Vector2(8 + seg_w, 27), "ナナイト:" + str(cur_nano), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(0.3, 0.9, 0.85))
+		draw_string(use_font, Vector2(8 + seg_w * 2, 27), "鉱石:" + str(cur_data), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(0.7, 0.5, 1.0))
 	else:
-		# ⚡ ENERGY
-		draw_string(font, Vector2(25, 28), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.85, 0.2))
+		# 電力 ENERGY
+		draw_string(use_font, Vector2(25, 28), "電力 ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.85, 0.2))
 		var e_str := str(cur_e) + "/" + str(max_e)
-		draw_rect(Rect2(105, 13, 105, 20), Color(0.12, 0.16, 0.22))
-		draw_rect(Rect2(105, 13, 105, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-		draw_string(font, Vector2(110, 27), e_str, HORIZONTAL_ALIGNMENT_CENTER, 95, 11, Color(1, 1, 1))
+		draw_rect(Rect2(115, 13, 105, 20), Color(0.12, 0.16, 0.22))
+		draw_rect(Rect2(115, 13, 105, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+		draw_string(use_font, Vector2(120, 27), e_str, HORIZONTAL_ALIGNMENT_CENTER, 95, 12, Color(1, 1, 1))
 
-		# ⚙ NANITES
-		draw_string(font, Vector2(235, 28), "⚙ NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.3, 0.9, 0.85))
+		# ナナイト NANITES
+		draw_string(use_font, Vector2(245, 28), "ナナイト", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.9, 0.85))
 		var n_str := str(cur_nano) + "/390"
 		draw_rect(Rect2(325, 13, 95, 20), Color(0.12, 0.16, 0.22))
 		draw_rect(Rect2(325, 13, 95, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-		draw_string(font, Vector2(330, 27), n_str, HORIZONTAL_ALIGNMENT_CENTER, 85, 11, Color(1, 1, 1))
+		draw_string(use_font, Vector2(330, 27), n_str, HORIZONTAL_ALIGNMENT_CENTER, 85, 12, Color(1, 1, 1))
 
-		# 💾 DATA
-		draw_string(font, Vector2(445, 28), "💾 DATA", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.5, 1.0))
+		# データ DATA
+		draw_string(use_font, Vector2(445, 28), "鉱石/データ", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.5, 1.0))
 		var d_str := str(cur_data)
-		draw_rect(Rect2(515, 13, 85, 20), Color(0.12, 0.16, 0.22))
-		draw_rect(Rect2(515, 13, 85, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-		draw_string(font, Vector2(520, 27), d_str, HORIZONTAL_ALIGNMENT_CENTER, 75, 11, Color(1, 1, 1))
+		draw_rect(Rect2(530, 13, 85, 20), Color(0.12, 0.16, 0.22))
+		draw_rect(Rect2(530, 13, 85, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+		draw_string(use_font, Vector2(535, 27), d_str, HORIZONTAL_ALIGNMENT_CENTER, 75, 12, Color(1, 1, 1))
 
 func _draw_nano_printer_section(split_x: float, _h: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -763,8 +780,8 @@ func _draw_custom_ellipse_arc(center: Vector2, rx: float, ry: float, col: Color,
 		draw_line(p1, p2, col, width)
 
 func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
-	var font := ThemeDB.fallback_font
-	var scale := clampf((w - 50.0) / 560.0, 0.52, 0.95)
+	var use_font: Font = font if font != null else ThemeDB.fallback_font
+	var scale_x := clampf((w - 40.0) / 580.0, 0.6, 0.95)
 
 	# 接続線の描画
 	for node in tree_nodes:
@@ -781,7 +798,7 @@ func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
 					line_col = Color(0.2, 0.25, 0.35, 0.4)
 				var p1 := _get_node_screen_pos(p_node, w, h)
 				var p2 := _get_node_screen_pos(node, w, h)
-				draw_line(p1, p2, line_col, 2.0 * scale)
+				draw_line(p1, p2, line_col, 2.5)
 
 	# ノードの描画
 	for node in tree_nodes:
@@ -794,51 +811,49 @@ func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
 		if not is_unlocked:
 			base_col = Color(0.25, 0.3, 0.38)
 			
-		# 外輪サークル
-		var r_outer := 17.0 * scale
-		var r_inner := 14.0 * scale
+		# 外輪サークル（親指でタップしやすい20px設計）
+		var r_outer := 20.0
+		var r_inner := 16.0
 		draw_circle(pos, r_outer, Color(0.08, 0.1, 0.14, 0.95))
 		draw_circle(pos, r_inner, Color(0.15, 0.2, 0.28))
-		draw_arc(pos, r_outer, 0.0, TAU, 32, base_col, 2.0)
+		draw_arc(pos, r_outer, 0.0, TAU, 32, base_col, 2.2)
 		
 		if is_selected:
-			draw_arc(pos, r_outer + 3.0, 0.0, TAU, 32, Color(1, 1, 1, 0.9), 1.5)
+			draw_arc(pos, r_outer + 4.0, 0.0, TAU, 32, Color(1, 1, 1, 0.95), 2.0)
 
-		# アイコン
-		var f_icon := int(11 * scale)
-		draw_string(font, Vector2(pos.x - 6 * scale, pos.y + 5 * scale), node["icon"], HORIZONTAL_ALIGNMENT_LEFT, -1, max(8, f_icon), base_col)
+		# アイコン文字（12px）
+		draw_string(use_font, Vector2(pos.x - 14.0, pos.y + 5.0), node["icon"], HORIZONTAL_ALIGNMENT_CENTER, 28, 11, base_col)
 
-		# タイトルとレベル表示
+		# レベル表示（10px）
 		if is_unlocked:
-			var txt_col := Color(0.9, 0.9, 0.9)
 			var lvl_str := "L" + str(node["lvl"])
-			draw_string(font, Vector2(pos.x - 30 * scale, pos.y + 24 * scale), lvl_str, HORIZONTAL_ALIGNMENT_CENTER, int(60 * scale), max(7, int(8 * scale)), base_col)
+			draw_string(use_font, Vector2(pos.x - 30.0, pos.y + 32.0), lvl_str, HORIZONTAL_ALIGNMENT_CENTER, 60, 10, base_col)
 
 	# 選択中ノードのサマリー詳細カード（下部）
 	for node in tree_nodes:
 		if node["id"] == selected_node_id:
-			var card_w := minf(w - 24.0, 380.0)
-			var card_h := 60.0
+			var card_w := minf(w - 24.0, 420.0)
+			var card_h := 72.0
 			var card_x := (w - card_w) * 0.5
-			var card_y := h - 110.0
-			draw_rect(Rect2(card_x, card_y, card_w, card_h), Color(0.05, 0.1, 0.16, 0.95))
+			var card_y := h - 124.0
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), Color(0.05, 0.1, 0.16, 0.96))
 			var border_c := Color(0.95, 0.65, 0.2) if node["color_type"] == "orange" else Color(0.3, 0.85, 1.0)
-			draw_rect(Rect2(card_x, card_y, card_w, card_h), border_c, false, 1.5)
-			draw_string(font, Vector2(card_x + 12, card_y + 22), node["title"] + "  [LVL " + str(node["lvl"]) + "/" + str(node["max_lvl"]) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, border_c)
-			var status_s := "★ TAP TO UPGRADE TECH (+1 LEVEL) ★" if node["unlocked"] else "🔒 LOCKED: RESEARCH PREREQUISITES FIRST"
-			var status_c := Color(0.4, 0.95, 1.0) if node["unlocked"] else Color(0.8, 0.4, 0.4)
-			draw_string(font, Vector2(card_x + 12, card_y + 44), status_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, status_c)
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), border_c, false, 2.0)
+			draw_string(use_font, Vector2(card_x + 14, card_y + 26), node["title"] + "  [レベル " + str(node["lvl"]) + "/" + str(node["max_lvl"]) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, border_c)
+			var status_s := "★ タップして技術強化 (+1 レベル) ★" if node["unlocked"] else "未解除: 前提となる技術を開発してください"
+			var status_c := Color(0.4, 0.95, 1.0) if node["unlocked"] else Color(0.9, 0.45, 0.45)
+			draw_string(use_font, Vector2(card_x + 14, card_y + 52), status_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, status_c)
 			break
 
 func _draw_nano_printer_section_portrait(w: float, h: float) -> void:
-	var font := ThemeDB.fallback_font
-	var cham_w := minf(w - 24.0, 360.0)
-	var cham_h := minf(h * 0.38, 250.0)
+	var use_font: Font = font if font != null else ThemeDB.fallback_font
+	var cham_w := minf(w - 24.0, 420.0)
+	var cham_h := minf(h * 0.45, 420.0)
 	var cham_x := (w - cham_w) * 0.5
-	var cham_y := 90.0
+	var cham_y := 96.0
 
 	# チャンバー背景
-	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.04, 0.08, 0.12, 0.9))
+	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.04, 0.08, 0.12, 0.94))
 	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.2, 0.55, 0.8), false, 1.5)
 
 	# グリッド
@@ -849,39 +864,55 @@ func _draw_nano_printer_section_portrait(w: float, h: float) -> void:
 		draw_line(Vector2(cham_x, gy), Vector2(cham_x + cham_w, gy), Color(0.15, 0.3, 0.45, 0.3), 1.0)
 
 	# 台座と円形発光リング
-	var ped_center := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h - 35)
-	_draw_custom_ellipse(ped_center, 65.0, 18.0, Color(0.1, 0.3, 0.45, 0.8))
-	_draw_custom_ellipse_arc(ped_center, 65.0, 18.0, Color(0.3, 0.9, 1.0), 2.0)
+	var ped_center := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h - 45)
+	_draw_custom_ellipse(ped_center, 90.0, 24.0, Color(0.1, 0.3, 0.45, 0.8))
+	_draw_custom_ellipse_arc(ped_center, 90.0, 24.0, Color(0.3, 0.9, 1.0), 2.0)
 
-	# 中央で回転するフォン・ノイマン・プローブのホログラム
-	var probe_c := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h * 0.42)
-	_draw_hologram_probe(probe_c, probe_rot)
+	# 中央で回転するフォン・ノイマン・プローブのホログラム（存在感のある1.3倍スケール）
+	var probe_c := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h * 0.45)
+	_draw_hologram_probe(probe_c, probe_rot, 1.3)
 
 	# プログレスバー
 	var pb_x := cham_x + 20.0
-	var pb_y := cham_y + cham_h - 26.0
+	var pb_y := cham_y + cham_h - 32.0
 	var pb_w := cham_w - 40.0
-	draw_rect(Rect2(pb_x, pb_y, pb_w, 20), Color(0.08, 0.15, 0.22))
-	draw_rect(Rect2(pb_x, pb_y, pb_w * printing_progress, 20), Color(0.2, 0.7, 0.9, 0.8))
-	draw_rect(Rect2(pb_x, pb_y, pb_w, 20), Color(0.3, 0.85, 1.0), false, 1.2)
-	draw_string(font, Vector2(pb_x, pb_y + 15), "PRINTING... " + str(int(printing_progress * 100)) + "%", HORIZONTAL_ALIGNMENT_CENTER, pb_w, 11, Color(1, 1, 1))
+	draw_rect(Rect2(pb_x, pb_y, pb_w, 24), Color(0.08, 0.15, 0.22))
+	draw_rect(Rect2(pb_x, pb_y, pb_w * printing_progress, 24), Color(0.2, 0.7, 0.9, 0.8))
+	draw_rect(Rect2(pb_x, pb_y, pb_w, 24), Color(0.3, 0.85, 1.0), false, 1.5)
+	draw_string(use_font, Vector2(pb_x, pb_y + 18), "造形進捗 (PRINTING): " + str(int(printing_progress * 100)) + "%", HORIZONTAL_ALIGNMENT_CENTER, pb_w, 14, Color(1, 1, 1))
 
 	# 下段：THRUSTERS & MINING LASER 情報カード（横並び）
-	var sub_y := cham_y + cham_h + 12.0
-	var sub_w := (cham_w - 10.0) * 0.5
+	var sub_y := cham_y + cham_h + 16.0
+	var sub_w := (cham_w - 12.0) * 0.5
 	# スラスター
-	draw_rect(Rect2(cham_x, sub_y, sub_w, 90), Color(0.05, 0.1, 0.08, 0.8))
-	draw_rect(Rect2(cham_x, sub_y, sub_w, 90), Color(0.3, 0.9, 0.5), false, 1.2)
-	draw_string(font, Vector2(cham_x + 6, sub_y + 18), "THRUSTERS", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
-	_draw_mini_thruster(Vector2(cham_x + sub_w * 0.5, sub_y + 44))
-	draw_rect(Rect2(cham_x + 6, sub_y + 74, sub_w - 12, 6), Color(0.1, 0.2, 0.15))
-	draw_rect(Rect2(cham_x + 6, sub_y + 74, (sub_w - 12) * printing_progress, 6), Color(0.3, 1.0, 0.5))
+	draw_rect(Rect2(cham_x, sub_y, sub_w, 115), Color(0.05, 0.1, 0.08, 0.85))
+	draw_rect(Rect2(cham_x, sub_y, sub_w, 115), Color(0.3, 0.9, 0.5), false, 1.5)
+	draw_string(use_font, Vector2(cham_x + 8, sub_y + 22), "推進スラスター", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.4, 1.0, 0.6))
+	_draw_mini_thruster(Vector2(cham_x + sub_w * 0.5, sub_y + 56))
+	draw_rect(Rect2(cham_x + 8, sub_y + 92, sub_w - 16, 8), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(cham_x + 8, sub_y + 92, (sub_w - 16) * printing_progress, 8), Color(0.3, 1.0, 0.5))
 
 	# レーザー
-	var l_x := cham_x + sub_w + 10.0
-	draw_rect(Rect2(l_x, sub_y, sub_w, 90), Color(0.05, 0.1, 0.08, 0.8))
-	draw_rect(Rect2(l_x, sub_y, sub_w, 90), Color(0.3, 0.9, 0.5), false, 1.2)
-	draw_string(font, Vector2(l_x + 6, sub_y + 18), "MINING LASER", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
-	_draw_mini_laser(Vector2(l_x + sub_w * 0.5, sub_y + 44))
-	draw_rect(Rect2(l_x + 6, sub_y + 74, sub_w - 12, 6), Color(0.1, 0.2, 0.15))
-	draw_rect(Rect2(l_x + 6, sub_y + 74, (sub_w - 12) * printing_progress, 6), Color(0.3, 1.0, 0.5))
+	var l_x := cham_x + sub_w + 12.0
+	draw_rect(Rect2(l_x, sub_y, sub_w, 115), Color(0.05, 0.1, 0.08, 0.85))
+	draw_rect(Rect2(l_x, sub_y, sub_w, 115), Color(0.3, 0.9, 0.5), false, 1.5)
+	draw_string(use_font, Vector2(l_x + 8, sub_y + 22), "採掘レーザー", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.4, 1.0, 0.6))
+	_draw_mini_laser(Vector2(l_x + sub_w * 0.5, sub_y + 56))
+	draw_rect(Rect2(l_x + 8, sub_y + 92, sub_w - 16, 8), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(l_x + 8, sub_y + 92, (sub_w - 16) * printing_progress, 8), Color(0.3, 1.0, 0.5))
+
+	# 下段2：オシロスコープ＆診断マトリクス
+	var diag_y := sub_y + 130.0
+	var diag_h := minf(h - diag_y - 60.0, 240.0)
+	if diag_h > 80.0:
+		_draw_oscilloscope(cham_x, diag_y, cham_w * 0.5 - 6.0, diag_h)
+
+		var mx_x := cham_x + cham_w * 0.5 + 6.0
+		var mx_w := cham_w * 0.5 - 6.0
+		draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.04, 0.08, 0.12, 0.9))
+		draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.2, 0.55, 0.75), false, 1.2)
+		draw_string(use_font, Vector2(mx_x + 8, diag_y + 24), "機体自己診断テレメトリ", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.85, 1.0))
+		draw_string(use_font, Vector2(mx_x + 8, diag_y + 52), "装甲完全性: 100% [正常]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
+		draw_string(use_font, Vector2(mx_x + 8, diag_y + 76), "量子コア稼働: ONLINE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
+		draw_string(use_font, Vector2(mx_x + 8, diag_y + 100), "複製サイクル: 同期中", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
+		draw_string(use_font, Vector2(mx_x + 8, diag_y + 124), "ナノ材料供給: 安定", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
