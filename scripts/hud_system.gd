@@ -197,7 +197,7 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 	# 1. 仮想ジョイスティック（画面左下）
 	var vp_size := get_viewport().get_visible_rect().size
 	var is_portrait := vp_size.y > vp_size.x
-	var joy_zone := Rect2(0.0, vp_size.y - 280.0, minf(vp_size.x * 0.45, 230.0), 280.0) if is_portrait else Rect2(0.0, vp_size.y - 240.0, 260.0, 240.0)
+	var joy_zone := Rect2(0.0, vp_size.y - 360.0, vp_size.x * 0.45, 360.0) if is_portrait else Rect2(0.0, vp_size.y - 240.0, 260.0, 240.0)
 	if pos.distance_to(joystick_center) <= joystick_radius * 1.6 or joy_zone.has_point(pos):
 		is_joystick_touching = true
 		joystick_touch_id = touch_id
@@ -354,18 +354,18 @@ func _draw() -> void:
 	var is_portrait := h > w
 
 	if is_portrait:
-		var pw := minf((w - 20.0) * 0.5, 245.0)
-		# 1. 左上 HUD（エンブレム、複合ゲージ、CYCLE、エネルギーバー）
+		var pw := (w - 24.0) * 0.5
+		# 1. 左上 HUD（エンブレム、複合ゲージ、CYCLE、エネルギーバー、FPS）
 		_draw_top_left_hud(8.0, 10.0, pw)
 
 		# 2. 右上 HUD（4大リソース：NANO, ORE, SILICON, FLEET）
 		_draw_top_right_hud(w - pw - 8.0, 10.0, pw)
 
 		# 3. 左下 HUD（HP, SUB）- タッチコントロール上段に配置
-		_draw_bottom_left_hud(8.0, h - 315.0, pw)
+		_draw_bottom_left_hud(8.0, h - 390.0, pw)
 
 		# 4. 右下 HUD（THERM, CARGO）
-		_draw_bottom_right_hud(w - pw - 8.0, h - 315.0, pw)
+		_draw_bottom_right_hud(w - pw - 8.0, h - 390.0, pw)
 
 		# チュートリアル・ミッションオーバーレイカード
 		_draw_tutorial_overlay(w, h)
@@ -552,27 +552,30 @@ func _draw_cyber_panel(rect: Rect2, border_color: Color, corner_cut: float = 7.0
 	draw_line(Vector2(x1 - c - 8, y1), Vector2(x1 - c, y1), Color(0.4, 0.95, 1.0, 0.8), 2.0)
 
 func _draw_top_left_hud(ox: float, oy: float, pw: float = 215.0) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, pw, 104.0), Color(0.3, 0.55, 0.75, 0.95))
+	var vp_sz := get_viewport().get_visible_rect().size
+	var is_portrait := vp_sz.y > vp_sz.x
+	var panel_h := 130.0 if is_portrait else 104.0
+	_draw_cyber_panel(Rect2(ox, oy, pw, panel_h), Color(0.3, 0.55, 0.75, 0.95))
 
 	# 赤いエンブレムアイコン
-	var emb_pos := Vector2(ox + 24.0, oy + 26.0)
-	draw_circle(emb_pos, 15.0, Color(0.85, 0.25, 0.2, 0.9))
+	var emb_pos := Vector2(ox + (28.0 if is_portrait else 24.0), oy + (28.0 if is_portrait else 26.0))
+	draw_circle(emb_pos, 16.0 if is_portrait else 15.0, Color(0.85, 0.25, 0.2, 0.9))
 	draw_circle(emb_pos, 9.0, Color(0.08, 0.1, 0.14))
 	draw_rect(Rect2(emb_pos.x - 2, emb_pos.y - 11, 4, 22), Color(0.9, 0.3, 0.25))
 	draw_rect(Rect2(emb_pos.x - 11, emb_pos.y - 2, 22, 4), Color(0.9, 0.3, 0.25))
 
 	# 右側のブロックゲージ
-	var gx := ox + 50.0
-	var gy1 := oy + 15.0
-	var gy2 := oy + 28.0
+	var gx := ox + (56.0 if is_portrait else 50.0)
+	var gy1 := oy + (14.0 if is_portrait else 15.0)
+	var gy2 := oy + (28.0 if is_portrait else 28.0)
 	var blocks := 10
-	var bw := (pw - 62.0) / float(blocks)
+	var bw := (pw - (68.0 if is_portrait else 62.0)) / float(blocks)
 	for i in range(blocks):
 		var bx := gx + i * bw
 		var col1 := Color(0.95, 0.45, 0.2) if i < 8 else Color(0.2, 0.25, 0.3)
-		draw_rect(Rect2(bx, gy1, bw - 2.0, 9.0), col1)
+		draw_rect(Rect2(bx, gy1, bw - 2.0, 10.0 if is_portrait else 9.0), col1)
 		var col2 := Color(0.2, 0.85, 0.95) if i < 9 else Color(0.2, 0.25, 0.3)
-		draw_rect(Rect2(bx, gy2, bw - 2.0, 9.0), col2)
+		draw_rect(Rect2(bx, gy2, bw - 2.0, 10.0 if is_portrait else 9.0), col2)
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 	var cycle_str := "CYCLE: 63:2E"
@@ -580,35 +583,41 @@ func _draw_top_left_hud(ox: float, oy: float, pw: float = 215.0) -> void:
 		cycle_str = "CYCLE: 93:32"
 
 	# ステータス行 1: CYCLE と SHIELD
-	draw_string(use_font, Vector2(ox + 10.0, oy + 53.0), cycle_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.95, 0.85, 0.3))
-	draw_string(use_font, Vector2(ox + 115.0, oy + 53.0), "SHIELD: 100%", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.9, 1.0))
+	var f_sz1 := 18 if is_portrait else 13
+	draw_string(use_font, Vector2(ox + 12.0, oy + (62.0 if is_portrait else 53.0)), cycle_str, HORIZONTAL_ALIGNMENT_LEFT, -1, f_sz1, Color(0.95, 0.85, 0.3))
+	draw_string(use_font, Vector2(ox + (pw * 0.46 if is_portrait else 115.0), oy + (62.0 if is_portrait else 53.0)), "SHIELD: 100%", HORIZONTAL_ALIGNMENT_LEFT, -1, f_sz1, Color(0.3, 0.9, 1.0))
 
 	# ステータス行 2: ⚡ エネルギーバー
-	_draw_icon("energy", Vector2(ox + 16.0, oy + 73.0), 14.0, Color(0.3, 1.0, 0.5))
-	var eg_x := ox + 30.0
-	var eg_y := oy + 65.0
+	_draw_icon("energy", Vector2(ox + 16.0, oy + (86.0 if is_portrait else 73.0)), 16.0 if is_portrait else 14.0, Color(0.3, 1.0, 0.5))
+	var eg_x := ox + (34.0 if is_portrait else 30.0)
+	var eg_y := oy + (77.0 if is_portrait else 65.0)
 	var energy_ratio := 1.0
 	if game_state != null:
 		var cur_e: float = game_state.resources.get("energy", 100.0)
 		var max_e: float = maxf(game_state.resources.get("max_energy", 100.0), 1.0)
 		energy_ratio = clampf(cur_e / max_e, 0.0, 1.0)
 	var active_blocks := int(energy_ratio * 12.0)
-	var e_block_w := (pw - 42.0) / 12.0
+	var e_block_w := (pw - (46.0 if is_portrait else 42.0)) / 12.0
 	for i in range(12):
 		var bx := eg_x + i * e_block_w
 		var col := Color(0.3, 1.0, 0.5) if i < 8 else Color(1.0, 0.85, 0.2)
 		if i >= active_blocks:
 			col = Color(0.18, 0.22, 0.28)
-		draw_rect(Rect2(bx, eg_y, e_block_w - 2.0, 13.0), col)
+		draw_rect(Rect2(bx, eg_y, e_block_w - 2.0, 15.0 if is_portrait else 13.0), col)
 
 	# ステータス行 3: 独立FPSカウンター
 	var ms_str := "%.1f" % (1000.0 / maxf(current_fps, 1.0))
-	draw_rect(Rect2(ox + 8.0, oy + 83.0, pw - 16.0, 16.0), Color(0.02, 0.04, 0.08, 0.6))
-	draw_rect(Rect2(ox + 8.0, oy + 83.0, pw - 16.0, 16.0), Color(0.2, 0.5, 0.7, 0.5), false, 1.0)
-	draw_string(use_font, Vector2(ox + 14.0, oy + 95.0), "SYS TELEMETRY // FPS: " + str(int(current_fps)) + " (" + ms_str + "ms)", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.4, 0.95, 1.0))
+	var fps_y := oy + (100.0 if is_portrait else 83.0)
+	var fps_h := 22.0 if is_portrait else 16.0
+	draw_rect(Rect2(ox + 8.0, fps_y, pw - 16.0, fps_h), Color(0.02, 0.04, 0.08, 0.6))
+	draw_rect(Rect2(ox + 8.0, fps_y, pw - 16.0, fps_h), Color(0.2, 0.5, 0.7, 0.5), false, 1.0)
+	draw_string(use_font, Vector2(ox + 14.0, fps_y + (16.0 if is_portrait else 12.0)), "SYS TELEMETRY // FPS: " + str(int(current_fps)) + " (" + ms_str + "ms)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14 if is_portrait else 11, Color(0.4, 0.95, 1.0))
 
 func _draw_top_right_hud(ox: float, oy: float, pw: float = 215.0) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, pw, 104.0), Color(0.3, 0.55, 0.75, 0.95))
+	var vp_sz := get_viewport().get_visible_rect().size
+	var is_portrait := vp_sz.y > vp_sz.x
+	var panel_h := 130.0 if is_portrait else 104.0
+	_draw_cyber_panel(Rect2(ox, oy, pw, panel_h), Color(0.3, 0.55, 0.75, 0.95))
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 	
@@ -631,35 +640,46 @@ func _draw_top_right_hud(ox: float, oy: float, pw: float = 215.0) -> void:
 		{"label": "FLEET", "icon": "fleet", "val": fleet_val, "col": Color(1.0, 0.55, 0.85)}
 	]
 
+	var row_h := 28.0 if is_portrait else 23.0
+	var f_lbl := 17 if is_portrait else 13
+	var f_val := 19 if is_portrait else 14
 	for i in range(r_data.size()):
-		var ry := oy + 23.0 + i * 23.0
+		var ry := oy + (25.0 if is_portrait else 23.0) + i * row_h
 		var item = r_data[i]
-		_draw_icon(item["icon"], Vector2(ox + 16.0, ry - 5.0), 13.0, item["col"])
-		draw_string(use_font, Vector2(ox + 30.0, ry), item["label"] + ":", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9))
-		draw_string(use_font, Vector2(ox + 115.0, ry), item["val"], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.98, 0.98, 0.98))
+		_draw_icon(item["icon"], Vector2(ox + 16.0, ry - 6.0), 16.0 if is_portrait else 13.0, item["col"])
+		draw_string(use_font, Vector2(ox + (36.0 if is_portrait else 30.0), ry), item["label"] + ":", HORIZONTAL_ALIGNMENT_LEFT, -1, f_lbl, Color(0.7, 0.8, 0.9))
+		draw_string(use_font, Vector2(ox + pw - (120.0 if is_portrait else 100.0), ry), item["val"], HORIZONTAL_ALIGNMENT_RIGHT, 105 if is_portrait else 85, f_val, Color(0.98, 0.98, 0.98))
 
 func _draw_bottom_left_hud(ox: float, oy: float, pw: float = 210.0) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, pw, 70.0), Color(0.3, 0.55, 0.75, 0.95))
+	var vp_sz := get_viewport().get_visible_rect().size
+	var is_portrait := vp_sz.y > vp_sz.x
+	var panel_h := 80.0 if is_portrait else 70.0
+	_draw_cyber_panel(Rect2(ox, oy, pw, panel_h), Color(0.3, 0.55, 0.75, 0.95))
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 
 	# HPバー
-	_draw_icon("hp", Vector2(ox + 18.0, oy + 20.0), 14.0, Color(1.0, 0.35, 0.45))
-	draw_string(use_font, Vector2(ox + 32.0, oy + 24.0), "HP", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.4, 0.5))
-	var bar_w := minf(pw - 118.0, 95.0)
-	draw_rect(Rect2(ox + 60.0, oy + 12.0, bar_w, 16.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 60.0, oy + 12.0, bar_w, 16.0), Color(0.95, 0.35, 0.4))
-	draw_string(use_font, Vector2(ox + 66.0 + bar_w, oy + 24.0), "56/56", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1))
+	_draw_icon("hp", Vector2(ox + 18.0, oy + (24.0 if is_portrait else 20.0)), 16.0 if is_portrait else 14.0, Color(1.0, 0.35, 0.45))
+	draw_string(use_font, Vector2(ox + 36.0, oy + (28.0 if is_portrait else 24.0)), "HP", HORIZONTAL_ALIGNMENT_LEFT, -1, 16 if is_portrait else 13, Color(1.0, 0.4, 0.5))
+	var bar_w := minf(pw - 130.0, 180.0) if is_portrait else minf(pw - 118.0, 95.0)
+	var bar_x := ox + (70.0 if is_portrait else 60.0)
+	var bar_h := 20.0 if is_portrait else 16.0
+	draw_rect(Rect2(bar_x, oy + (14.0 if is_portrait else 12.0), bar_w, bar_h), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(bar_x, oy + (14.0 if is_portrait else 12.0), bar_w, bar_h), Color(0.95, 0.35, 0.4))
+	draw_string(use_font, Vector2(bar_x + bar_w + 10.0, oy + (28.0 if is_portrait else 24.0)), "56/56", HORIZONTAL_ALIGNMENT_LEFT, -1, 16 if is_portrait else 12, Color(1, 1, 1))
 
 	# SUBバー
-	_draw_icon("sub", Vector2(ox + 18.0, oy + 50.0), 14.0, Color(0.3, 1.0, 0.5))
-	draw_string(use_font, Vector2(ox + 32.0, oy + 54.0), "SUB", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 1.0, 0.5))
-	draw_rect(Rect2(ox + 60.0, oy + 42.0, bar_w, 16.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 60.0, oy + 42.0, bar_w * 0.35, 16.0), Color(0.3, 0.9, 0.5))
-	draw_string(use_font, Vector2(ox + 66.0 + bar_w, oy + 54.0), "5/15", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1))
+	_draw_icon("sub", Vector2(ox + 18.0, oy + (56.0 if is_portrait else 50.0)), 16.0 if is_portrait else 14.0, Color(0.3, 1.0, 0.5))
+	draw_string(use_font, Vector2(ox + 36.0, oy + (60.0 if is_portrait else 54.0)), "SUB", HORIZONTAL_ALIGNMENT_LEFT, -1, 16 if is_portrait else 13, Color(0.3, 1.0, 0.5))
+	draw_rect(Rect2(bar_x, oy + (46.0 if is_portrait else 42.0), bar_w, bar_h), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(bar_x, oy + (46.0 if is_portrait else 42.0), bar_w * 0.35, bar_h), Color(0.3, 0.9, 0.5))
+	draw_string(use_font, Vector2(bar_x + bar_w + 10.0, oy + (60.0 if is_portrait else 54.0)), "5/15", HORIZONTAL_ALIGNMENT_LEFT, -1, 16 if is_portrait else 12, Color(1, 1, 1))
 
 func _draw_bottom_right_hud(ox: float, oy: float, pw: float = 215.0) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, pw, 70.0), Color(0.3, 0.55, 0.75, 0.95))
+	var vp_sz := get_viewport().get_visible_rect().size
+	var is_portrait := vp_sz.y > vp_sz.x
+	var panel_h := 80.0 if is_portrait else 70.0
+	_draw_cyber_panel(Rect2(ox, oy, pw, panel_h), Color(0.3, 0.55, 0.75, 0.95))
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 
@@ -667,12 +687,14 @@ func _draw_bottom_right_hud(ox: float, oy: float, pw: float = 215.0) -> void:
 	var therm_val := 256
 	if game_state != null and game_state.upgrades.has("laser_power"):
 		therm_val = 256 + (game_state.upgrades["laser_power"] - 1) * 32
-	var bar_w := minf(pw - 128.0, 85.0)
-	_draw_icon("therm", Vector2(ox + 16.0, oy + 20.0), 14.0, Color(0.3, 0.85, 1.0))
-	draw_string(use_font, Vector2(ox + 28.0, oy + 24.0), "THERM", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.3, 0.85, 1.0))
-	draw_rect(Rect2(ox + 72.0, oy + 12.0, bar_w, 16.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 72.0, oy + 12.0, bar_w, 16.0), Color(0.2, 0.8, 0.95))
-	draw_string(use_font, Vector2(ox + 78.0 + bar_w, oy + 24.0), str(therm_val) + "/256", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1))
+	var bar_w := minf(pw - 140.0, 180.0) if is_portrait else minf(pw - 128.0, 85.0)
+	var bar_x := ox + (80.0 if is_portrait else 72.0)
+	var bar_h := 20.0 if is_portrait else 16.0
+	_draw_icon("therm", Vector2(ox + 18.0, oy + (24.0 if is_portrait else 20.0)), 16.0 if is_portrait else 14.0, Color(0.3, 0.85, 1.0))
+	draw_string(use_font, Vector2(ox + 34.0, oy + (28.0 if is_portrait else 24.0)), "THERM", HORIZONTAL_ALIGNMENT_LEFT, -1, 15 if is_portrait else 12, Color(0.3, 0.85, 1.0))
+	draw_rect(Rect2(bar_x, oy + (14.0 if is_portrait else 12.0), bar_w, bar_h), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(bar_x, oy + (14.0 if is_portrait else 12.0), bar_w, bar_h), Color(0.2, 0.8, 0.95))
+	draw_string(use_font, Vector2(bar_x + bar_w + 10.0, oy + (28.0 if is_portrait else 24.0)), str(therm_val) + "/256", HORIZONTAL_ALIGNMENT_LEFT, -1, 15 if is_portrait else 12, Color(1, 1, 1))
 
 	# CARGO
 	var cur_ore: float = 0.0
@@ -697,18 +719,18 @@ func _draw_bottom_right_hud(ox: float, oy: float, pw: float = 215.0) -> void:
 	var fill_ratio := clampf(total_cargo / max_cargo, 0.0, 1.0)
 	var filled_width := minf(bar_w * fill_ratio, bar_w)
 
-	_draw_icon("cargo", Vector2(ox + 16.0, oy + 50.0), 14.0, Color(1.0, 0.65, 0.2))
-	draw_string(use_font, Vector2(ox + 28.0, oy + 54.0), "CARGO", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.65, 0.2))
-	draw_rect(Rect2(ox + 72.0, oy + 42.0, bar_w, 16.0), Color(0.18, 0.22, 0.26))
+	_draw_icon("cargo", Vector2(ox + 18.0, oy + (56.0 if is_portrait else 50.0)), 16.0 if is_portrait else 14.0, Color(1.0, 0.65, 0.2))
+	draw_string(use_font, Vector2(ox + 34.0, oy + (60.0 if is_portrait else 54.0)), "CARGO", HORIZONTAL_ALIGNMENT_LEFT, -1, 15 if is_portrait else 12, Color(1.0, 0.65, 0.2))
+	draw_rect(Rect2(bar_x, oy + (46.0 if is_portrait else 42.0), bar_w, bar_h), Color(0.18, 0.22, 0.26))
 	if filled_width > 0.0:
-		draw_rect(Rect2(ox + 72.0, oy + 42.0, filled_width, 16.0), Color(0.95, 0.6, 0.2))
+		draw_rect(Rect2(bar_x, oy + (46.0 if is_portrait else 42.0), filled_width, bar_h), Color(0.95, 0.6, 0.2))
 
 	var cargo_str := ""
 	if max_cargo >= 1000.0:
 		cargo_str = "%.1fk/%.0fk" % [total_cargo / 1000.0, max_cargo / 1000.0]
 	else:
 		cargo_str = str(int(total_cargo)) + "/" + str(int(max_cargo))
-	draw_string(use_font, Vector2(ox + 78.0 + bar_w, oy + 54.0), cargo_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1))
+	draw_string(use_font, Vector2(bar_x + bar_w + 10.0, oy + (60.0 if is_portrait else 54.0)), cargo_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 15 if is_portrait else 12, Color(1, 1, 1))
 
 func _draw_tutorial_overlay(w: float, h: float) -> void:
 	if not is_tutorial_open:
@@ -716,59 +738,103 @@ func _draw_tutorial_overlay(w: float, h: float) -> void:
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 	var is_portrait := h > w
 
-	var card_w := minf(w - 16.0, 520.0)
-	var card_h := 80.0
-	var cx := (w - card_w) * 0.5
-	var cy := 178.0 if is_portrait else 130.0
+	var card_w := w - 24.0 if is_portrait else minf(w - 16.0, 520.0)
+	var card_h := 115.0 if is_portrait else 80.0
+	var cx := 12.0 if is_portrait else (w - card_w) * 0.5
+	var cy := 214.0 if is_portrait else 130.0
 
 	_draw_cyber_panel(Rect2(cx, cy, card_w, card_h), Color(1.0, 0.75, 0.2, 0.95), 6.0)
 
 	var cur_step: int = game_state.current_tutorial_step if game_state != null else 0
+	var cur_phase: int = game_state.current_phase if game_state != null else 1
+	var c_stage: int = game_state.construction_stage if game_state != null else 0
+
 	var step_title := ""
 	var step_desc := ""
 	var step_prog := 0.0
 
-	match cur_step:
-		GameState.TutorialStep.STEP_0_MOVE:
-			step_title = "MISSION 01: プローブの推進移動"
-			var m_sec := game_state.tutorial_move_time if game_state != null else 0.0
-			step_desc = "左下の仮想ジョイスティックでプローブを前進移動させよ (%.1f / 3.0秒)" % [minf(m_sec, 3.0)]
-			step_prog = clampf(m_sec / 3.0, 0.0, 1.0)
-		GameState.TutorialStep.STEP_1_MINE:
-			step_title = "MISSION 02: 地殻の採掘"
-			var mined := game_state.tutorial_mined_ore if game_state != null else 0.0
-			step_desc = "地表ブロックを直接タップ/長押しして鉱石を掘り出せ (鉱石: %d / 1個)" % [int(minf(mined, 1.0))]
-			step_prog = clampf(mined / 1.0, 0.0, 1.0)
-		GameState.TutorialStep.STEP_2_BUILD_SMELTER:
-			step_title = "MISSION 03: 最初の自動化施設建造"
-			step_desc = "画面最下部の金色ボタン [★施設建設★ 製錬炉] をタップして建造せよ"
-			step_prog = 0.5
-		GameState.TutorialStep.STEP_3_TECH_TREE:
-			step_title = "MISSION 04: 3Dナノプリント強化"
-			step_desc = "上部の [開発] ボタンをタップし、機体性能を3Dプリント強化せよ"
-			step_prog = 0.75
-		GameState.TutorialStep.STEP_4_PINCH_ZOOM:
-			step_title = "MISSION 05: 2本指ピンチズーム"
-			step_desc = "2本指で画面をピンチイン/アウトして惑星断面〜深宇宙へ縮尺を変更せよ"
-			step_prog = 0.9
-		GameState.TutorialStep.COMPLETED:
-			step_title = "全ミッション完了: 自律開発モード"
-			step_desc = "惑星全域を採掘・工業化し、軌道上から敵性艦隊を駆逐せよ！"
-			step_prog = 1.0
+	if cur_phase == GameState.Phase.PHASE_1_SURVIVAL and c_stage == 0 and cur_step != GameState.TutorialStep.COMPLETED:
+		# 初期チュートリアル 5ステップ
+		match cur_step:
+			GameState.TutorialStep.STEP_0_MOVE:
+				step_title = "MISSION 01: プローブの推進移動"
+				var m_sec := game_state.tutorial_move_time if game_state != null else 0.0
+				step_desc = "左下の仮想ジョイスティックでプローブを前進移動させよ (%.1f / 3.0秒)" % [minf(m_sec, 3.0)]
+				step_prog = clampf(m_sec / 3.0, 0.0, 1.0)
+			GameState.TutorialStep.STEP_1_MINE:
+				step_title = "MISSION 02: 地殻の採掘"
+				var mined := game_state.tutorial_mined_ore if game_state != null else 0.0
+				step_desc = "地表ブロックを直接タップ/長押しして鉱石を掘り出せ (鉱石: %d / 1個)" % [int(minf(mined, 1.0))]
+				step_prog = clampf(mined / 1.0, 0.0, 1.0)
+			GameState.TutorialStep.STEP_2_BUILD_SMELTER:
+				step_title = "MISSION 03: 最初の自動化施設建造"
+				step_desc = "画面最下部の金色ボタン [★施設建設★ 製錬炉] をタップして建造せよ"
+				step_prog = 0.5
+			GameState.TutorialStep.STEP_3_TECH_TREE:
+				step_title = "MISSION 04: 3Dナノプリント強化"
+				step_desc = "上部の [開発] ボタンをタップし、機体性能を3Dプリント強化せよ"
+				step_prog = 0.75
+			GameState.TutorialStep.STEP_4_PINCH_ZOOM:
+				step_title = "MISSION 05: 2本指ピンチズーム"
+				step_desc = "2本指で画面をピンチイン/アウトして惑星断面〜深宇宙へ縮尺を変更せよ"
+				step_prog = 0.9
+			_:
+				step_title = "MISSION: 基礎施設群の拡充"
+				step_desc = "地表に地上設置型3Dプリンターと放物線イジェクターを配備せよ"
+				step_prog = 1.0
+	elif cur_phase in [GameState.Phase.PHASE_1_SURVIVAL, GameState.Phase.PHASE_2_SURFACE_INDUSTRY]:
+		match c_stage:
+			1:
+				step_title = "MISSION: 地上物理物流網の確立"
+				step_desc = "3Dプリンターと放物線イジェクターを連携させ、鉱石の自動投擲供給ラインを構築せよ"
+				step_prog = 0.35
+			2:
+				step_title = "MISSION: 地下エレベーターシャフト掘削"
+				step_desc = "深部地殻へ向けて垂直シャフトを掘削し、高純度シリコン鉱脈の自動輸送を開始せよ"
+				step_prog = 0.55
+			3:
+				step_title = "MISSION: 溶鉱炉の増設と連続合金精錬"
+				step_desc = "高熱溶鉱炉を稼働させ、イジェクター弾道ラインと接続して精錬合金を連続生産せよ"
+				step_prog = 0.75
+			4:
+				step_title = "MISSION: 惑星地表の完全工業化"
+				step_desc = "惑星全域に自動化ラインを展開し、周回ロケット建造の準備を整えよ"
+				step_prog = 0.90
+			_:
+				step_title = "MISSION: 軌道進出と惑星間航行"
+				step_desc = "宇宙港を起動し、惑星周回軌道へ進出して恒星系スキャンを開始せよ"
+				step_prog = 1.0
+	elif cur_phase == GameState.Phase.PHASE_3_INTERPLANETARY:
+		step_title = "MISSION: 惑星深部探査と周回軌道進出"
+		step_desc = "マントル核反応テレメトリを観測し、周回ロケットと探査スキャンで資源埋蔵地を特定せよ"
+		step_prog = 0.65
+	elif cur_phase == GameState.Phase.PHASE_4_ORBITAL_WAR:
+		step_title = "MISSION: 月面マスドライバーと小惑星星系決戦"
+		step_desc = "月面マスドライバーで弾頭コンテナを連続射出！小惑星要塞と敵性自己複製艦隊を撃滅せよ"
+		step_prog = 0.85
+	else:
+		step_title = "全ミッション完了: 自律開発モード"
+		step_desc = "惑星全域を採掘・工業化し、軌道上から敵性艦隊を駆逐せよ！"
+		step_prog = 1.0
 
-	# タイトル描画（視認性の高い16px）
-	_draw_icon("mission", Vector2(cx + 20.0, cy + 22.0), 16.0, Color(1.0, 0.8, 0.2))
-	draw_string(use_font, Vector2(cx + 36.0, cy + 26.0), step_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.9, 0.3))
+	# タイトル描画（視認性の高い22px/16px）
+	var t_icon_sz := 20.0 if is_portrait else 16.0
+	_draw_icon("mission", Vector2(cx + (22.0 if is_portrait else 20.0), cy + (26.0 if is_portrait else 22.0)), t_icon_sz, Color(1.0, 0.8, 0.2))
+	var t_f_sz := 22 if is_portrait else 16
+	draw_string(use_font, Vector2(cx + (48.0 if is_portrait else 36.0), cy + (30.0 if is_portrait else 26.0)), step_title, HORIZONTAL_ALIGNMENT_LEFT, -1, t_f_sz, Color(1.0, 0.9, 0.3))
 
-	# 説明文描画（視認性の高い14px）
-	draw_string(use_font, Vector2(cx + 14.0, cy + 50.0), step_desc, HORIZONTAL_ALIGNMENT_LEFT, card_w - 28.0, 14, Color(0.92, 0.96, 1.0))
+	# 説明文描画（視認性の高い18px/14px）
+	var d_f_sz := 18 if is_portrait else 14
+	draw_string(use_font, Vector2(cx + (18.0 if is_portrait else 14.0), cy + (64.0 if is_portrait else 50.0)), step_desc, HORIZONTAL_ALIGNMENT_LEFT, card_w - (36.0 if is_portrait else 28.0), d_f_sz, Color(0.92, 0.96, 1.0))
 
 	# プログレスバー描画
-	var pbar_y := cy + 64.0
-	var pbar_w := card_w - 28.0
-	draw_rect(Rect2(cx + 14.0, pbar_y, pbar_w, 7.0), Color(0.1, 0.15, 0.2, 0.85))
+	var pbar_y := cy + (card_h - 14.0 if is_portrait else 64.0)
+	var pbar_w := card_w - (36.0 if is_portrait else 28.0)
+	var pbar_x := cx + (18.0 if is_portrait else 14.0)
+	var pbar_h := 8.0 if is_portrait else 7.0
+	draw_rect(Rect2(pbar_x, pbar_y, pbar_w, pbar_h), Color(0.1, 0.15, 0.2, 0.85))
 	if step_prog > 0.0:
-		draw_rect(Rect2(cx + 14.0, pbar_y, pbar_w * step_prog, 7.0), Color(0.3, 0.95, 0.5))
+		draw_rect(Rect2(pbar_x, pbar_y, pbar_w * step_prog, pbar_h), Color(0.3, 0.95, 0.5))
 
 func _draw_tutorial_beacon_arrows(w: float, h: float) -> void:
 	if game_state == null:
@@ -819,22 +885,23 @@ func _draw_pointer_beacon(target_pos: Vector2, dir: Vector2, col: Color) -> void
 
 func _draw_pinch_zoom_feedback(w: float, h: float) -> void:
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
-	var badge_w := minf(w - 30.0, 360.0)
-	var badge_h := 36.0
+	var is_portrait := h > w
+	var badge_w := w - 40.0 if is_portrait else minf(w - 30.0, 360.0)
+	var badge_h := 50.0 if is_portrait else 36.0
 	var bx := (w - badge_w) * 0.5
-	var by := h * 0.4
+	var by := h * 0.38
 
 	var alpha := clampf(pinch_feedback_timer / 0.4, 0.0, 1.0)
 	draw_rect(Rect2(bx, by, badge_w, badge_h), Color(0.04, 0.08, 0.14, 0.9 * alpha))
 	draw_rect(Rect2(bx, by, badge_w, badge_h), Color(0.35, 0.9, 1.0, 0.85 * alpha), false, 1.5)
-	draw_string(use_font, Vector2(bx, by + 24.0), pinch_feedback_text, HORIZONTAL_ALIGNMENT_CENTER, badge_w, 15, Color(0.4, 0.98, 1.0, alpha))
+	draw_string(use_font, Vector2(bx, by + (32.0 if is_portrait else 24.0)), pinch_feedback_text, HORIZONTAL_ALIGNMENT_CENTER, badge_w, 20 if is_portrait else 15, Color(0.4, 0.98, 1.0, alpha))
 
 func _draw_control_guide_bar(w: float, h: float) -> void:
 	var is_portrait := h > w
-	var bar_w := minf(w - 20.0, 580.0)
-	var bar_h := 22.0
+	var bar_w := w - 24.0 if is_portrait else minf(w - 20.0, 580.0)
+	var bar_h := 36.0 if is_portrait else 22.0
 	var bx := (w - bar_w) * 0.5
-	var by := h - 26.0
+	var by := h - (42.0 if is_portrait else 26.0)
 
 	_draw_cyber_panel(Rect2(bx, by, bar_w, bar_h), Color(0.25, 0.65, 0.85, 0.8), 4.0)
 
@@ -851,7 +918,7 @@ func _draw_control_guide_bar(w: float, h: float) -> void:
 			guide_text = "操作待機完了"
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
-	draw_string(use_font, Vector2(bx, by + 16.0), guide_text, HORIZONTAL_ALIGNMENT_CENTER, bar_w, 12, Color(0.4, 0.92, 1.0))
+	draw_string(use_font, Vector2(bx, by + (24.0 if is_portrait else 16.0)), guide_text, HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16 if is_portrait else 12, Color(0.4, 0.92, 1.0))
 
 func _draw_toast_banner(w: float, h: float) -> void:
 	var is_portrait := h > w
@@ -874,22 +941,22 @@ func _draw_touch_controls(w: float, h: float) -> void:
 
 	# 座標更新（指の届きやすいゆったりサイズ）
 	if is_portrait:
-		joystick_center = Vector2(90.0, h - 150.0)
-		joystick_radius = 54.0
-		var act_w := minf(150.0, w * 0.38)
-		var act_h := 56.0
-		btn_thrust_rect = Rect2(w - act_w - 10.0, h - 218.0, act_w, act_h)
-		btn_mine_rect = Rect2(w - act_w - 10.0, h - 150.0, act_w, act_h)
-		btn_build_rect = Rect2(10.0, h - 84.0, w - 20.0, 52.0)
+		joystick_center = Vector2(170.0, h - 220.0)
+		joystick_radius = 80.0
+		var act_w := minf(260.0, w * 0.36)
+		var act_h := 72.0
+		btn_thrust_rect = Rect2(w - act_w - 16.0, h - 310.0, act_w, act_h)
+		btn_mine_rect = Rect2(w - act_w - 16.0, h - 220.0, act_w, act_h)
+		btn_build_rect = Rect2(12.0, h - 130.0, w - 24.0, 72.0)
 
 		# 上部4大ボタン
-		var top_btn_w := (w - 32.0) / 4.0
-		var top_btn_h := 42.0
-		var top_y := 124.0
+		var top_btn_w := (w - 36.0) / 4.0
+		var top_btn_h := 54.0
+		var top_y := 150.0
 		btn_tutorial_rect = Rect2(8.0, top_y, top_btn_w, top_btn_h)
-		btn_settings_rect = Rect2(8.0 + (top_btn_w + 5.0) * 1.0, top_y, top_btn_w, top_btn_h)
-		btn_tech_rect = Rect2(8.0 + (top_btn_w + 5.0) * 2.0, top_y, top_btn_w, top_btn_h)
-		btn_phase_rect = Rect2(8.0 + (top_btn_w + 5.0) * 3.0, top_y, top_btn_w, top_btn_h)
+		btn_settings_rect = Rect2(8.0 + (top_btn_w + 6.0) * 1.0, top_y, top_btn_w, top_btn_h)
+		btn_tech_rect = Rect2(8.0 + (top_btn_w + 6.0) * 2.0, top_y, top_btn_w, top_btn_h)
+		btn_phase_rect = Rect2(8.0 + (top_btn_w + 6.0) * 3.0, top_y, top_btn_w, top_btn_h)
 	else:
 		joystick_center = Vector2(105.0, h - 140.0)
 		joystick_radius = 52.0
@@ -908,12 +975,12 @@ func _draw_touch_controls(w: float, h: float) -> void:
 	# 1. 仮想ジョイスティック（左下）
 	var joy_alpha := 0.75 if is_joystick_touching else 0.45
 	draw_circle(joystick_center, joystick_radius, Color(0.05, 0.12, 0.2, joy_alpha * 0.75))
-	draw_arc(joystick_center, joystick_radius, 0.0, TAU, 32, Color(0.3, 0.8, 1.0, joy_alpha), 2.0)
-	draw_line(joystick_center - Vector2(16, 0), joystick_center + Vector2(16, 0), Color(0.3, 0.8, 1.0, joy_alpha * 0.6), 1.5)
-	draw_line(joystick_center - Vector2(0, 16), joystick_center + Vector2(0, 16), Color(0.3, 0.8, 1.0, joy_alpha * 0.6), 1.5)
+	draw_arc(joystick_center, joystick_radius, 0.0, TAU, 32, Color(0.3, 0.8, 1.0, joy_alpha), 2.5 if is_portrait else 2.0)
+	draw_line(joystick_center - Vector2(24 if is_portrait else 16, 0), joystick_center + Vector2(24 if is_portrait else 16, 0), Color(0.3, 0.8, 1.0, joy_alpha * 0.6), 2.0 if is_portrait else 1.5)
+	draw_line(joystick_center - Vector2(0, 24 if is_portrait else 16), joystick_center + Vector2(0, 24 if is_portrait else 16), Color(0.3, 0.8, 1.0, joy_alpha * 0.6), 2.0 if is_portrait else 1.5)
 	var knob_col := Color(0.4, 0.95, 1.0, 0.85) if is_joystick_touching else Color(0.3, 0.75, 0.9, 0.6)
-	draw_circle(joystick_knob_pos, 24.0, knob_col)
-	draw_circle(joystick_knob_pos, 9.0, Color(1.0, 1.0, 1.0, 0.95))
+	draw_circle(joystick_knob_pos, 32.0 if is_portrait else 24.0, knob_col)
+	draw_circle(joystick_knob_pos, 12.0 if is_portrait else 9.0, Color(1.0, 1.0, 1.0, 0.95))
 
 	var joy_label := "移動スティック"
 	match cur_p:
@@ -921,7 +988,7 @@ func _draw_touch_controls(w: float, h: float) -> void:
 			joy_label = "軌道制御"
 		GameState.Phase.PHASE_4_ORBITAL_WAR:
 			joy_label = "砲撃照準"
-	draw_string(use_font, joystick_center + Vector2(-40, joystick_radius + 20), joy_label, HORIZONTAL_ALIGNMENT_CENTER, 80, 12, Color(0.4, 0.85, 1.0, 0.8))
+	draw_string(use_font, joystick_center + Vector2(-60 if is_portrait else -40, joystick_radius + (28 if is_portrait else 20)), joy_label, HORIZONTAL_ALIGNMENT_CENTER, 120 if is_portrait else 80, 16 if is_portrait else 12, Color(0.4, 0.85, 1.0, 0.8))
 
 	# 2. 右下タッチアクションボタン
 	var btn1_text := "採掘レーザー"
@@ -942,24 +1009,32 @@ func _draw_touch_controls(w: float, h: float) -> void:
 			btn2_col = Color(1.0, 0.5, 0.8, 0.95)
 
 	draw_rect(btn_mine_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_mine_rect, btn1_col, false, 1.8)
-	draw_string(use_font, Vector2(btn_mine_rect.position.x, btn_mine_rect.position.y + 32), btn1_text, HORIZONTAL_ALIGNMENT_CENTER, btn_mine_rect.size.x, 15, btn1_col)
+	draw_rect(btn_mine_rect, btn1_col, false, 2.0 if is_portrait else 1.8)
+	draw_string(use_font, Vector2(btn_mine_rect.position.x, btn_mine_rect.position.y + (44 if is_portrait else 32)), btn1_text, HORIZONTAL_ALIGNMENT_CENTER, btn_mine_rect.size.x, 20 if is_portrait else 15, btn1_col)
 
 	draw_rect(btn_thrust_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_thrust_rect, btn2_col, false, 1.8)
-	draw_string(use_font, Vector2(btn_thrust_rect.position.x, btn_thrust_rect.position.y + 32), btn2_text, HORIZONTAL_ALIGNMENT_CENTER, btn_thrust_rect.size.x, 15, btn2_col)
+	draw_rect(btn_thrust_rect, btn2_col, false, 2.0 if is_portrait else 1.8)
+	draw_string(use_font, Vector2(btn_thrust_rect.position.x, btn_thrust_rect.position.y + (44 if is_portrait else 32)), btn2_text, HORIZONTAL_ALIGNMENT_CENTER, btn_thrust_rect.size.x, 20 if is_portrait else 15, btn2_col)
 
 	# 3. 画面下部：中央建設・状況バー
 	if cur_p in [GameState.Phase.PHASE_1_SURVIVAL, GameState.Phase.PHASE_2_SURFACE_INDUSTRY]:
 		var stage: int = game_state.construction_stage if game_state != null else 0
 		var can_build: bool = game_state.can_build_next_stage() if game_state != null else false
+		var tut_s: int = game_state.current_tutorial_step if game_state != null else 0
 		var b_col := Color(1.0, 0.85, 0.2, 0.98) if can_build else Color(0.3, 0.6, 0.8, 0.8)
 
-		draw_rect(btn_build_rect, Color(0.03, 0.06, 0.1, 0.94))
-		draw_rect(btn_build_rect, b_col, false, 2.2 if can_build else 1.2)
-
 		var build_msg := ""
-		if game_state != null and stage < game_state.stage_requirements.size():
+		if stage == 0 and tut_s == GameState.TutorialStep.STEP_0_MOVE:
+			build_msg = "【操作誘導】左下の仮想スティックでプローブを前進移動させよ"
+			b_col = Color(0.3, 0.85, 1.0, 0.95)
+		elif stage == 0 and tut_s == GameState.TutorialStep.STEP_1_MINE:
+			var cur_ore: float = game_state.resources.get("ore", game_state.resources.get("iron", 0.0))
+			build_msg = "【操作誘導】地表の岩石ブロックをタップして採掘せよ (鉱石: " + str(int(cur_ore)) + "/1)"
+			b_col = Color(1.0, 0.85, 0.3, 0.95)
+		elif stage == 0 and tut_s == GameState.TutorialStep.STEP_2_BUILD_SMELTER:
+			build_msg = "★ [ここをタップして建造] 製錬炉 (準備完了！タップして建造) ★"
+			b_col = Color(1.0, 0.85, 0.2, 0.98)
+		elif game_state != null and stage < game_state.stage_requirements.size():
 			var req: Dictionary = game_state.stage_requirements[stage]
 			var req_name: String = req.get("name", "FACILITY")
 			var cur_ore: float = game_state.resources.get("ore", game_state.resources.get("iron", 0.0))
@@ -971,39 +1046,46 @@ func _draw_touch_controls(w: float, h: float) -> void:
 		else:
 			build_msg = "★ 惑星地表の最大工業化を達成 // 全施設稼働中 ★"
 
-		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + 30), build_msg, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 15, b_col)
+		draw_rect(btn_build_rect, Color(0.03, 0.06, 0.1, 0.94))
+		draw_rect(btn_build_rect, b_col, false, 2.5 if (can_build or tut_s == GameState.TutorialStep.STEP_2_BUILD_SMELTER) else 1.5)
+		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + (44 if is_portrait else 30)), build_msg, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 20 if is_portrait else 15, b_col)
 	elif cur_p == GameState.Phase.PHASE_3_INTERPLANETARY:
 		draw_rect(btn_build_rect, Color(0.03, 0.06, 0.1, 0.94))
-		draw_rect(btn_build_rect, Color(0.3, 0.8, 1.0, 0.8), false, 1.2)
+		draw_rect(btn_build_rect, Color(0.3, 0.8, 1.0, 0.8), false, 1.5)
 		var orbit_info := "軌道探査テレメトリ // 高度: 420 km // 速度: 7.82 km/s // マントル核反応: 正常"
-		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + 30), orbit_info, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 14, Color(0.4, 0.95, 1.0))
+		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + (44 if is_portrait else 30)), orbit_info, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 19 if is_portrait else 14, Color(0.4, 0.95, 1.0))
 	elif cur_p == GameState.Phase.PHASE_4_ORBITAL_WAR:
 		draw_rect(btn_build_rect, Color(0.03, 0.06, 0.1, 0.94))
-		draw_rect(btn_build_rect, Color(1.0, 0.45, 0.7, 0.85), false, 1.2)
-		var war_info := "軌道RTS戦闘 // 軌道造船所稼働中 // マスドライバー装填完了 // 敵艦隊迎撃せよ"
-		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + 30), war_info, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 14, Color(1.0, 0.65, 0.85))
+		draw_rect(btn_build_rect, Color(1.0, 0.45, 0.7, 0.85), false, 1.5)
+		var war_info := "艦隊戦術命令: [迎撃態勢] 全自動迎撃ドローン配備完了 // マスドライバー装填完了"
+		draw_string(use_font, Vector2(btn_build_rect.position.x, btn_build_rect.position.y + (44 if is_portrait else 30)), war_info, HORIZONTAL_ALIGNMENT_CENTER, btn_build_rect.size.x, 19 if is_portrait else 14, Color(1.0, 0.65, 0.85))
 
 	# 4. 上部タッチボタン4種：[任務] [設定] [開発] [視点]
 	var tut_col := Color(1.0, 0.8, 0.2, 0.95) if is_tutorial_open else Color(0.3, 0.7, 0.9, 0.85)
+	var t_btn_f := 20 if is_portrait else 14
+	var t_btn_y := 35.0 if is_portrait else 24.0
+	var t_btn_icon_sz := 14.0 if is_portrait else 11.0
+	var t_btn_tx_off := 34.0 if is_portrait else 22.0
+
 	draw_rect(btn_tutorial_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_tutorial_rect, tut_col, false, 1.5)
-	_draw_icon("mission", Vector2(btn_tutorial_rect.position.x + 14.0, btn_tutorial_rect.position.y + btn_tutorial_rect.size.y * 0.5), 11.0, tut_col)
-	draw_string(use_font, Vector2(btn_tutorial_rect.position.x + 22.0, btn_tutorial_rect.position.y + 24), "任務", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, tut_col)
+	draw_rect(btn_tutorial_rect, tut_col, false, 2.0 if is_portrait else 1.5)
+	_draw_icon("mission", Vector2(btn_tutorial_rect.position.x + (18.0 if is_portrait else 14.0), btn_tutorial_rect.position.y + btn_tutorial_rect.size.y * 0.5), t_btn_icon_sz, tut_col)
+	draw_string(use_font, Vector2(btn_tutorial_rect.position.x + t_btn_tx_off, btn_tutorial_rect.position.y + t_btn_y), "任務", HORIZONTAL_ALIGNMENT_LEFT, -1, t_btn_f, tut_col)
 
 	draw_rect(btn_settings_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_settings_rect, Color(0.3, 0.8, 1.0, 0.85), false, 1.5)
-	_draw_icon("settings", Vector2(btn_settings_rect.position.x + 14.0, btn_settings_rect.position.y + btn_settings_rect.size.y * 0.5), 11.0, Color(0.4, 0.9, 1.0))
-	draw_string(use_font, Vector2(btn_settings_rect.position.x + 22.0, btn_settings_rect.position.y + 24), "設定", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.4, 0.9, 1.0))
+	draw_rect(btn_settings_rect, Color(0.3, 0.8, 1.0, 0.85), false, 2.0 if is_portrait else 1.5)
+	_draw_icon("settings", Vector2(btn_settings_rect.position.x + (18.0 if is_portrait else 14.0), btn_settings_rect.position.y + btn_settings_rect.size.y * 0.5), t_btn_icon_sz, Color(0.4, 0.9, 1.0))
+	draw_string(use_font, Vector2(btn_settings_rect.position.x + t_btn_tx_off, btn_settings_rect.position.y + t_btn_y), "設定", HORIZONTAL_ALIGNMENT_LEFT, -1, t_btn_f, Color(0.4, 0.9, 1.0))
 
 	draw_rect(btn_tech_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_tech_rect, Color(0.3, 0.8, 1.0, 0.85), false, 1.5)
-	_draw_icon("tech", Vector2(btn_tech_rect.position.x + 14.0, btn_tech_rect.position.y + btn_tech_rect.size.y * 0.5), 11.0, Color(0.4, 0.9, 1.0))
-	draw_string(use_font, Vector2(btn_tech_rect.position.x + 22.0, btn_tech_rect.position.y + 24), "開発", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.4, 0.9, 1.0))
+	draw_rect(btn_tech_rect, Color(0.3, 0.8, 1.0, 0.85), false, 2.0 if is_portrait else 1.5)
+	_draw_icon("tech", Vector2(btn_tech_rect.position.x + (18.0 if is_portrait else 14.0), btn_tech_rect.position.y + btn_tech_rect.size.y * 0.5), t_btn_icon_sz, Color(0.4, 0.9, 1.0))
+	draw_string(use_font, Vector2(btn_tech_rect.position.x + t_btn_tx_off, btn_tech_rect.position.y + t_btn_y), "開発", HORIZONTAL_ALIGNMENT_LEFT, -1, t_btn_f, Color(0.4, 0.9, 1.0))
 
 	draw_rect(btn_phase_rect, Color(0.04, 0.08, 0.14, 0.88))
-	draw_rect(btn_phase_rect, Color(0.3, 0.8, 1.0, 0.85), false, 1.5)
-	_draw_icon("view", Vector2(btn_phase_rect.position.x + 14.0, btn_phase_rect.position.y + btn_phase_rect.size.y * 0.5), 11.0, Color(0.4, 0.9, 1.0))
-	draw_string(use_font, Vector2(btn_phase_rect.position.x + 22.0, btn_phase_rect.position.y + 24), "視点", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.4, 0.9, 1.0))
+	draw_rect(btn_phase_rect, Color(0.3, 0.8, 1.0, 0.85), false, 2.0 if is_portrait else 1.5)
+	_draw_icon("view", Vector2(btn_phase_rect.position.x + (18.0 if is_portrait else 14.0), btn_phase_rect.position.y + btn_phase_rect.size.y * 0.5), t_btn_icon_sz, Color(0.4, 0.9, 1.0))
+	draw_string(use_font, Vector2(btn_phase_rect.position.x + t_btn_tx_off, btn_phase_rect.position.y + t_btn_y), "視点", HORIZONTAL_ALIGNMENT_LEFT, -1, t_btn_f, Color(0.4, 0.9, 1.0))
 
 func _draw_settings_modal(w: float, h: float) -> void:
 	draw_rect(Rect2(0, 0, w, h), Color(0.0, 0.0, 0.0, 0.7))

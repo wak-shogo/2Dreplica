@@ -48,6 +48,7 @@ func _ready() -> void:
 			get_viewport().size = Vector2i(420, 880)
 			if DisplayServer.has_feature(DisplayServer.FEATURE_SUBWINDOWS):
 				DisplayServer.window_set_size(Vector2i(420, 880))
+			print("[DEBUG] portrait get_visible_rect: ", get_viewport().get_visible_rect().size)
 		elif arg == "--play-test":
 			is_play_test_mode = true
 
@@ -422,7 +423,9 @@ func _process_auto_test(delta: float) -> void:
 			# Step 0: Stage 0 荒野のスタート地点（機械なし、未開岩肌、プローブ単独、地表ズーム）
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
+				game_state.current_phase = GameState.Phase.PHASE_1_SURVIVAL
 				game_state.set_construction_stage(0)
+				game_state.set_tutorial_step(GameState.TutorialStep.STEP_0_MOVE)
 				game_state.resources["ore"] = 0.0
 				game_state.resources["iron"] = 0.0
 				game_state.resources["silicon"] = 0.0
@@ -449,7 +452,9 @@ func _process_auto_test(delta: float) -> void:
 			# Step 1: Stage 4 工場完全稼働（地表ズーム：3Dプリンター、溶鉱炉、イジェクター弾道投擲）
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
+				game_state.current_phase = GameState.Phase.PHASE_2_SURFACE_INDUSTRY
 				game_state.set_construction_stage(4)
+				game_state.set_tutorial_step(GameState.TutorialStep.COMPLETED)
 				game_state.resources["ore"] = 480.0
 				game_state.resources["iron"] = 480.0
 				game_state.resources["silicon"] = 240.0
@@ -476,6 +481,8 @@ func _process_auto_test(delta: float) -> void:
 			# Step 2: 3D Nano-Printer & Tech Tree全画面ホログラムUI
 			if auto_test_substep == 0:
 				tech_tree_screen.open()
+				game_state.current_phase = GameState.Phase.PHASE_2_SURFACE_INDUSTRY
+				game_state.set_tutorial_step(GameState.TutorialStep.STEP_3_TECH_TREE)
 				if is_portrait_test_mode:
 					tech_tree_screen.mobile_tab = 1 # Tech Treeタブ
 				auto_test_substep = 1
@@ -502,7 +509,9 @@ func _process_auto_test(delta: float) -> void:
 			# Step 3: 真円惑星全体、燃え盛るマグマコア、周回ロケット、放射状採掘レーザー
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
+				game_state.current_phase = GameState.Phase.PHASE_3_INTERPLANETARY
 				game_state.set_construction_stage(5)
+				game_state.set_tutorial_step(GameState.TutorialStep.COMPLETED)
 				game_state.resources["ore"] = 1450.0
 				game_state.resources["silicon"] = 680.0
 				game_state.resources["nanites"] = 260.0
@@ -525,7 +534,9 @@ func _process_auto_test(delta: float) -> void:
 			# Step 4: 月面マスドライバー、小惑星要塞、4連巨大プラズマスラスター、迎撃艦隊RTS
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
+				game_state.current_phase = GameState.Phase.PHASE_4_ORBITAL_WAR
 				game_state.set_construction_stage(5)
+				game_state.set_tutorial_step(GameState.TutorialStep.COMPLETED)
 				game_state.resources["ore"] = 5800.0
 				game_state.resources["silicon"] = 3400.0
 				game_state.resources["nanites"] = 890.0

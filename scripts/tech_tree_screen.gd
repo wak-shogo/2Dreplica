@@ -26,11 +26,12 @@ func _get_node_screen_pos(node: Dictionary, w: float, h: float) -> Vector2:
 	if h <= w:
 		return node["pos"]
 	var orig_p: Vector2 = node["pos"]
-	var scale_x := clampf((w - 40.0) / 580.0, 0.6, 0.95)
-	var scale_y := clampf((h - 260.0) / 620.0, 0.9, 1.45)
-	var x_offset := (w - 530.0 * scale_x) * 0.5
-	var y_offset := 105.0
-	return Vector2(x_offset + (orig_p.x - 640.0) * scale_x, y_offset + (orig_p.y - 100.0) * scale_y)
+	var scale_x := (w - 200.0) / 530.0
+	var usable_h := maxf(h - 540.0, 500.0)
+	var scale_y := usable_h / 540.0
+	var x := 100.0 + (orig_p.x - 650.0) * scale_x
+	var y := 180.0 + (orig_p.y - 110.0) * scale_y
+	return Vector2(x, y)
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
@@ -101,8 +102,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# 0. 右上閉じるボタンまたは下部バーのタップで閉じる
 		var vp_size := get_viewport().get_visible_rect().size
 		var is_portrait := vp_size.y > vp_size.x
-		var close_btn_w := 90.0 if is_portrait else 115.0
-		if Rect2(vp_size.x - close_btn_w - 15.0, 5, close_btn_w + 10.0, 36).has_point(mpos) or Rect2((vp_size.x - minf(vp_size.x - 20.0, 560.0)) * 0.5, vp_size.y - 40, minf(vp_size.x - 20.0, 560.0), 40).has_point(mpos):
+		var close_btn_w := 140.0 if is_portrait else 115.0
+		var close_btn_h := 52.0 if is_portrait else 36.0
+		if Rect2(vp_size.x - close_btn_w - 15.0, 5, close_btn_w + 10.0, close_btn_h).has_point(mpos) or Rect2((vp_size.x - minf(vp_size.x - 20.0, 560.0)) * 0.5, vp_size.y - 48, minf(vp_size.x - 20.0, 560.0), 48).has_point(mpos):
 			close()
 			get_viewport().set_input_as_handled()
 			return
@@ -124,26 +126,38 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-		# 1. 選択中ノードのフローティングHUDバッジクリック判定（ダイレクト・アップグレード対応）
+		# 1. 選択中ノードのフローティングHUDバッジおよび下部強化カード判定
 		if not is_portrait or mobile_tab == 1:
+			var card_w := vp_size.x - 40.0 if is_portrait else 440.0
+			var card_h := 190.0 if is_portrait else 85.0
+			var card_y := vp_size.y - (250.0 if is_portrait else 135.0)
+			var card_rect := Rect2((vp_size.x - card_w) * 0.5, card_y, card_w, card_h)
+			if is_portrait and card_rect.has_point(mpos):
+				for node in tree_nodes:
+					if node["id"] == selected_node_id:
+						_upgrade_node(node)
+						get_viewport().set_input_as_handled()
+						return
+
 			for node in tree_nodes:
 				if node["id"] == selected_node_id:
 					var p := _get_node_screen_pos(node, vp_size.x, vp_size.y)
-					var bx := p.x + 28.0
-					var by := p.y - 14.0
-					var bw := 125.0
-					var bh := 28.0
+					var bx := p.x + 36.0
+					var by := p.y - 20.0
+					var bw := 150.0
+					var bh := 40.0
 					if bx + bw > vp_size.x - 10.0:
-						bx = p.x - bw - 28.0
+						bx = p.x - bw - 36.0
 					if Rect2(bx, by, bw, bh).has_point(mpos):
 						_upgrade_node(node)
 						get_viewport().set_input_as_handled()
 						return
 
-			# 2. ノード本体サークルクリック判定
+			# 2. ノード本体サークルクリック判定（親指判定を大型化）
+			var hit_dist := 56.0 if is_portrait else 26.0
 			for node in tree_nodes:
 				var npos := _get_node_screen_pos(node, vp_size.x, vp_size.y)
-				if mpos.distance_to(npos) < 24.0:
+				if mpos.distance_to(npos) < hit_dist:
 					selected_node_id = node["id"]
 					_upgrade_node(node)
 					get_viewport().set_input_as_handled()
@@ -286,20 +300,21 @@ func _draw() -> void:
 	if is_portrait:
 		# スマホ縦画面：上部タブ [3Dプリンター] / [テックツリー]
 		var use_font: Font = font if font != null else ThemeDB.fallback_font
-		var tab_w := (w - 26.0) * 0.5
-		tab_printer_rect = Rect2(10.0, 48.0, tab_w, 36.0)
-		tab_tree_rect = Rect2(10.0 + tab_w + 6.0, 48.0, tab_w, 36.0)
+		var tab_w := (w - 32.0) * 0.5
+		var tab_h := 56.0
+		tab_printer_rect = Rect2(12.0, 72.0, tab_w, tab_h)
+		tab_tree_rect = Rect2(12.0 + tab_w + 8.0, 72.0, tab_w, tab_h)
 
 		# タブ描画
 		var p_col := Color(0.2, 0.8, 1.0, 0.95) if mobile_tab == 0 else Color(0.12, 0.22, 0.3, 0.8)
 		var t_col := Color(1.0, 0.7, 0.2, 0.95) if mobile_tab == 1 else Color(0.12, 0.22, 0.3, 0.8)
 		draw_rect(tab_printer_rect, Color(0.06, 0.1, 0.16, 0.9))
-		draw_rect(tab_printer_rect, p_col, false, 2.0 if mobile_tab == 0 else 1.0)
-		draw_string(use_font, Vector2(tab_printer_rect.position.x, tab_printer_rect.position.y + 24.0), "3Dナノプリンター", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 14, p_col)
+		draw_rect(tab_printer_rect, p_col, false, 2.5 if mobile_tab == 0 else 1.2)
+		draw_string(use_font, Vector2(tab_printer_rect.position.x, tab_printer_rect.position.y + 36.0), "3Dナノプリンター", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 22, p_col)
 
 		draw_rect(tab_tree_rect, Color(0.06, 0.1, 0.16, 0.9))
-		draw_rect(tab_tree_rect, t_col, false, 2.0 if mobile_tab == 1 else 1.0)
-		draw_string(use_font, Vector2(tab_tree_rect.position.x, tab_tree_rect.position.y + 24.0), "開発テックツリー", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 14, t_col)
+		draw_rect(tab_tree_rect, t_col, false, 2.5 if mobile_tab == 1 else 1.2)
+		draw_string(use_font, Vector2(tab_tree_rect.position.x, tab_tree_rect.position.y + 36.0), "開発テックツリー", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 22, t_col)
 
 		if mobile_tab == 0:
 			_draw_nano_printer_section_portrait(w, h)
@@ -438,9 +453,13 @@ func _draw_upgrade_sparks() -> void:
 	upgrade_sparks = keep
 
 func _draw_header(w: float) -> void:
+	var vp_size := get_viewport().get_visible_rect().size
+	var is_portrait := vp_size.y > vp_size.x
+	var h_bar_h := 62.0 if is_portrait else 44.0
+
 	# ヘッダーバー枠
-	draw_rect(Rect2(0, 0, w, 44), Color(0.06, 0.08, 0.12, 0.98))
-	draw_line(Vector2(0, 44), Vector2(w, 44), Color(0.2, 0.5, 0.75), 1.5)
+	draw_rect(Rect2(0, 0, w, h_bar_h), Color(0.06, 0.08, 0.12, 0.98))
+	draw_line(Vector2(0, h_bar_h), Vector2(w, h_bar_h), Color(0.2, 0.5, 0.75), 1.5)
 
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
 
@@ -454,18 +473,19 @@ func _draw_header(w: float) -> void:
 		cur_nano = int(game_state.resources.get("nanites", game_state.resources.get("nano", 29.0)))
 		cur_data = int(game_state.resources.get("ore", 100.0))
 
-	var cb_w := 85.0 if w < 600.0 else 105.0
-	var cb_rect := Rect2(w - cb_w - 10.0, 10.0, cb_w, 24.0)
+	var cb_w := 140.0 if is_portrait else 105.0
+	var cb_h := 46.0 if is_portrait else 24.0
+	var cb_rect := Rect2(w - cb_w - 12.0, 8.0 if is_portrait else 10.0, cb_w, cb_h)
 	draw_rect(cb_rect, Color(0.15, 0.05, 0.08, 0.9))
-	draw_rect(cb_rect, Color(1.0, 0.4, 0.4, 0.9), false, 1.2)
-	draw_string(use_font, Vector2(cb_rect.position.x, cb_rect.position.y + 17.0), "閉じる [×]", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 12, Color(1.0, 0.65, 0.65))
+	draw_rect(cb_rect, Color(1.0, 0.4, 0.4, 0.9), false, 1.5)
+	draw_string(use_font, Vector2(cb_rect.position.x, cb_rect.position.y + (30.0 if is_portrait else 17.0)), "閉じる [×]", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 20 if is_portrait else 12, Color(1.0, 0.65, 0.65))
 
-	if w < 600.0:
-		# スマホ縦画面：コンパクトなリソース表示
-		var seg_w := (w - cb_w - 24.0) / 3.0
-		draw_string(use_font, Vector2(8, 27), "電力:" + str(cur_e), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(1.0, 0.85, 0.2))
-		draw_string(use_font, Vector2(8 + seg_w, 27), "ナナイト:" + str(cur_nano), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(0.3, 0.9, 0.85))
-		draw_string(use_font, Vector2(8 + seg_w * 2, 27), "鉱石:" + str(cur_data), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 12, Color(0.7, 0.5, 1.0))
+	if is_portrait:
+		# スマホ縦画面：見やすい大型リソース表示
+		var seg_w := (w - cb_w - 36.0) / 3.0
+		draw_string(use_font, Vector2(16, 38), "電力: " + str(cur_e), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 20, Color(1.0, 0.85, 0.2))
+		draw_string(use_font, Vector2(16 + seg_w, 38), "ナナイト: " + str(cur_nano), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 20, Color(0.3, 0.9, 0.85))
+		draw_string(use_font, Vector2(16 + seg_w * 2, 38), "鉱石: " + str(cur_data), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 20, Color(0.7, 0.5, 1.0))
 	else:
 		# 電力 ENERGY
 		draw_string(use_font, Vector2(25, 28), "電力 ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.85, 0.2))
@@ -703,36 +723,36 @@ func _draw_hologram_probe(center: Vector2, rot: float, scale_f: float = 1.0) -> 
 	var scan_y := center.y - 50.0 * scale_f + fmod(Time.get_ticks_msec() * 0.06, 100.0 * scale_f)
 	draw_line(Vector2(center.x - 75.0 * scale_f, scan_y), Vector2(center.x + 75.0 * scale_f, scan_y), Color(0.3, 1.0, 0.8, 0.75), 1.8)
 
-func _draw_mini_thruster(center: Vector2) -> void:
+func _draw_mini_thruster(center: Vector2, scale_m: float = 1.0) -> void:
 	# 画像2右側モジュールアイコン：精密メカニカルスラスター
 	# マウントブラケット
-	draw_rect(Rect2(center.x - 22, center.y - 16, 18, 32), Color(0.18, 0.28, 0.24))
-	draw_rect(Rect2(center.x - 22, center.y - 16, 18, 32), Color(0.35, 0.9, 0.55), false, 1.5)
+	draw_rect(Rect2(center.x - 22.0 * scale_m, center.y - 16.0 * scale_m, 18.0 * scale_m, 32.0 * scale_m), Color(0.18, 0.28, 0.24))
+	draw_rect(Rect2(center.x - 22.0 * scale_m, center.y - 16.0 * scale_m, 18.0 * scale_m, 32.0 * scale_m), Color(0.35, 0.9, 0.55), false, 1.5 * scale_m)
 	# ツインノズルベル
-	for ny in [-8.0, 8.0]:
-		var n_base := Vector2(center.x - 4, center.y + ny)
+	for ny in [-8.0 * scale_m, 8.0 * scale_m]:
+		var n_base := Vector2(center.x - 4.0 * scale_m, center.y + ny)
 		draw_polygon(PackedVector2Array([
-			n_base + Vector2(0, -6), Vector2(center.x + 18, center.y + ny - 10),
-			Vector2(center.x + 18, center.y + ny + 10), n_base + Vector2(0, 6)
+			n_base + Vector2(0, -6.0 * scale_m), Vector2(center.x + 18.0 * scale_m, center.y + ny - 10.0 * scale_m),
+			Vector2(center.x + 18.0 * scale_m, center.y + ny + 10.0 * scale_m), n_base + Vector2(0, 6.0 * scale_m)
 		]), [Color(0.22, 0.35, 0.28)])
 		draw_polyline(PackedVector2Array([
-			n_base + Vector2(0, -6), Vector2(center.x + 18, center.y + ny - 10),
-			Vector2(center.x + 18, center.y + ny + 10), n_base + Vector2(0, 6)
-		]), Color(0.4, 1.0, 0.6), 1.5)
-		draw_circle(Vector2(center.x + 18, center.y + ny), 3.0, Color(0.6, 1.0, 0.8))
+			n_base + Vector2(0, -6.0 * scale_m), Vector2(center.x + 18.0 * scale_m, center.y + ny - 10.0 * scale_m),
+			Vector2(center.x + 18.0 * scale_m, center.y + ny + 10.0 * scale_m), n_base + Vector2(0, 6.0 * scale_m)
+		]), Color(0.4, 1.0, 0.6), 1.5 * scale_m)
+		draw_circle(Vector2(center.x + 18.0 * scale_m, center.y + ny), 3.0 * scale_m, Color(0.6, 1.0, 0.8))
 
-func _draw_mini_laser(center: Vector2) -> void:
+func _draw_mini_laser(center: Vector2, scale_m: float = 1.0) -> void:
 	# 画像2右側モジュールアイコン：高精度採掘レーザー砲塔
 	# ターレットハウジング
-	draw_rect(Rect2(center.x - 20, center.y - 14, 22, 28), Color(0.18, 0.28, 0.24))
-	draw_rect(Rect2(center.x - 20, center.y - 14, 22, 28), Color(0.35, 0.9, 0.55), false, 1.5)
+	draw_rect(Rect2(center.x - 20.0 * scale_m, center.y - 14.0 * scale_m, 22.0 * scale_m, 28.0 * scale_m), Color(0.18, 0.28, 0.24))
+	draw_rect(Rect2(center.x - 20.0 * scale_m, center.y - 14.0 * scale_m, 22.0 * scale_m, 28.0 * scale_m), Color(0.35, 0.9, 0.55), false, 1.5 * scale_m)
 	# 延長バレル＆電磁加速コイル
-	draw_line(Vector2(center.x + 2, center.y), Vector2(center.x + 26, center.y), Color(0.3, 0.45, 0.38), 7.0)
-	for c_x in [8.0, 14.0, 20.0]:
-		draw_line(Vector2(center.x + c_x, center.y - 5), Vector2(center.x + c_x, center.y + 5), Color(0.4, 1.0, 0.6), 2.0)
+	draw_line(Vector2(center.x + 2.0 * scale_m, center.y), Vector2(center.x + 26.0 * scale_m, center.y), Color(0.3, 0.45, 0.38), 7.0 * scale_m)
+	for c_x in [8.0 * scale_m, 14.0 * scale_m, 20.0 * scale_m]:
+		draw_line(Vector2(center.x + c_x, center.y - 5.0 * scale_m), Vector2(center.x + c_x, center.y + 5.0 * scale_m), Color(0.4, 1.0, 0.6), 2.0 * scale_m)
 	# マズルダイオード発光
-	draw_circle(Vector2(center.x + 27, center.y), 4.5, Color(1, 1, 1))
-	draw_circle(Vector2(center.x + 27, center.y), 8.0, Color(0.3, 1.0, 0.6, 0.6))
+	draw_circle(Vector2(center.x + 27.0 * scale_m, center.y), 4.5 * scale_m, Color(1, 1, 1))
+	draw_circle(Vector2(center.x + 27.0 * scale_m, center.y), 8.0 * scale_m, Color(0.3, 1.0, 0.6, 0.6))
 
 func _draw_oscilloscope(ox: float, oy: float, w: float, h: float) -> void:
 	draw_rect(Rect2(ox, oy, w, h), Color(0.03, 0.06, 0.08, 0.9))
@@ -781,9 +801,8 @@ func _draw_custom_ellipse_arc(center: Vector2, rx: float, ry: float, col: Color,
 
 func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
-	var scale_x := clampf((w - 40.0) / 580.0, 0.6, 0.95)
 
-	# 接続線の描画
+	# 接続線の描画（太く鮮やかな4.5px SF導光ライン）
 	for node in tree_nodes:
 		for p_id in node["parents"]:
 			var p_node = null
@@ -793,14 +812,14 @@ func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
 					break
 			if p_node != null:
 				var is_both_unlocked: bool = node["unlocked"] and p_node["unlocked"]
-				var line_col := Color(0.95, 0.65, 0.2, 0.8) if node["color_type"] == "orange" else Color(0.2, 0.85, 1.0, 0.8)
+				var line_col := Color(0.95, 0.65, 0.2, 0.9) if node["color_type"] == "orange" else Color(0.2, 0.85, 1.0, 0.9)
 				if not is_both_unlocked:
-					line_col = Color(0.2, 0.25, 0.35, 0.4)
+					line_col = Color(0.2, 0.25, 0.35, 0.45)
 				var p1 := _get_node_screen_pos(p_node, w, h)
 				var p2 := _get_node_screen_pos(node, w, h)
-				draw_line(p1, p2, line_col, 2.5)
+				draw_line(p1, p2, line_col, 4.5)
 
-	# ノードの描画
+	# ノードの描画（親指で快適にタップできる大型96pxノード設計）
 	for node in tree_nodes:
 		var pos := _get_node_screen_pos(node, w, h)
 		var is_unlocked: bool = node["unlocked"]
@@ -811,108 +830,139 @@ func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
 		if not is_unlocked:
 			base_col = Color(0.25, 0.3, 0.38)
 			
-		# 外輪サークル（親指でタップしやすい20px設計）
-		var r_outer := 20.0
-		var r_inner := 16.0
-		draw_circle(pos, r_outer, Color(0.08, 0.1, 0.14, 0.95))
-		draw_circle(pos, r_inner, Color(0.15, 0.2, 0.28))
-		draw_arc(pos, r_outer, 0.0, TAU, 32, base_col, 2.2)
+		# 外輪サークル（直径96px）
+		var r_outer := 48.0
+		var r_inner := 38.0
+		draw_circle(pos, r_outer, Color(0.06, 0.1, 0.16, 0.96))
+		draw_circle(pos, r_inner, Color(0.12, 0.18, 0.26))
+		draw_arc(pos, r_outer, 0.0, TAU, 36, base_col, 3.5)
 		
 		if is_selected:
-			draw_arc(pos, r_outer + 4.0, 0.0, TAU, 32, Color(1, 1, 1, 0.95), 2.0)
+			var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.008) * 0.12
+			draw_circle(pos, (r_outer + 12.0) * pulse, Color(base_col.r, base_col.g, base_col.b, 0.25))
+			draw_arc(pos, (r_outer + 8.0) * pulse, 0.0, TAU, 36, Color(1, 1, 1, 0.95), 3.0)
 
-		# アイコン文字（12px）
-		draw_string(use_font, Vector2(pos.x - 14.0, pos.y + 5.0), node["icon"], HORIZONTAL_ALIGNMENT_CENTER, 28, 11, base_col)
+		# アイコン文字（見やすい22px中央揃え）
+		draw_string(use_font, Vector2(pos.x - 30.0, pos.y + 8.0), node["icon"], HORIZONTAL_ALIGNMENT_CENTER, 60, 22, base_col)
 
-		# レベル表示（10px）
+		# レベル表示ピル（ノード下部：18px）
 		if is_unlocked:
-			var lvl_str := "L" + str(node["lvl"])
-			draw_string(use_font, Vector2(pos.x - 30.0, pos.y + 32.0), lvl_str, HORIZONTAL_ALIGNMENT_CENTER, 60, 10, base_col)
+			var lvl_str := "Lv." + str(node["lvl"])
+			draw_rect(Rect2(pos.x - 40.0, pos.y + 54.0, 80.0, 26.0), Color(0.04, 0.08, 0.14, 0.9))
+			draw_rect(Rect2(pos.x - 40.0, pos.y + 54.0, 80.0, 26.0), base_col, false, 1.5)
+			draw_string(use_font, Vector2(pos.x - 40.0, pos.y + 73.0), lvl_str, HORIZONTAL_ALIGNMENT_CENTER, 80, 18, base_col)
 
-	# 選択中ノードのサマリー詳細カード（下部）
+		# ノードタイトル（ノード上部：見やすい20px）
+		var title_col := Color(0.9, 0.95, 1.0) if is_unlocked else Color(0.5, 0.55, 0.6)
+		draw_string(use_font, Vector2(pos.x - 120.0, pos.y - 56.0), node["title"], HORIZONTAL_ALIGNMENT_CENTER, 240, 20, title_col)
+
+	# 選択中ノードのサマリー詳細カード（下部：画面全幅を使った高視認性大型カード）
 	for node in tree_nodes:
 		if node["id"] == selected_node_id:
-			var card_w := minf(w - 24.0, 420.0)
-			var card_h := 72.0
-			var card_x := (w - card_w) * 0.5
-			var card_y := h - 124.0
-			draw_rect(Rect2(card_x, card_y, card_w, card_h), Color(0.05, 0.1, 0.16, 0.96))
+			var card_w := w - 40.0
+			var card_h := 190.0
+			var card_x := 20.0
+			var card_y := h - 250.0
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), Color(0.04, 0.08, 0.15, 0.96))
 			var border_c := Color(0.95, 0.65, 0.2) if node["color_type"] == "orange" else Color(0.3, 0.85, 1.0)
-			draw_rect(Rect2(card_x, card_y, card_w, card_h), border_c, false, 2.0)
-			draw_string(use_font, Vector2(card_x + 14, card_y + 26), node["title"] + "  [レベル " + str(node["lvl"]) + "/" + str(node["max_lvl"]) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, border_c)
-			var status_s := "★ タップして技術強化 (+1 レベル) ★" if node["unlocked"] else "未解除: 前提となる技術を開発してください"
-			var status_c := Color(0.4, 0.95, 1.0) if node["unlocked"] else Color(0.9, 0.45, 0.45)
-			draw_string(use_font, Vector2(card_x + 14, card_y + 52), status_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, status_c)
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), border_c, false, 2.5)
+			draw_string(use_font, Vector2(card_x + 20, card_y + 38), node["title"] + "  [レベル " + str(node["lvl"]) + "/" + str(node["max_lvl"]) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, border_c)
+			var status_s := "★ [ここをタップで強化] 技術レベル +1 アップグレード ★" if node["unlocked"] else "未解除: 前提となる技術ツリーを開発してください"
+			var status_c := Color(0.4, 0.98, 1.0) if node["unlocked"] else Color(0.95, 0.45, 0.45)
+			draw_rect(Rect2(card_x + 16.0, card_y + 64.0, card_w - 32.0, 96.0), Color(0.08, 0.16, 0.24, 0.85))
+			draw_rect(Rect2(card_x + 16.0, card_y + 64.0, card_w - 32.0, 96.0), status_c, false, 2.0)
+			draw_string(use_font, Vector2(card_x + 20, card_y + 120.0), status_s, HORIZONTAL_ALIGNMENT_CENTER, card_w - 40.0, 24, status_c)
 			break
 
 func _draw_nano_printer_section_portrait(w: float, h: float) -> void:
 	var use_font: Font = font if font != null else ThemeDB.fallback_font
-	var cham_w := minf(w - 24.0, 420.0)
-	var cham_h := minf(h * 0.45, 420.0)
-	var cham_x := (w - cham_w) * 0.5
-	var cham_y := 96.0
+	var cham_w := w - 40.0
+	var cham_x := 20.0
+	var cham_y := 148.0
+	var cham_h := 740.0
 
-	# チャンバー背景
+	# 1. 3Dナノプリンター造形チャンバー
 	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.04, 0.08, 0.12, 0.94))
-	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.2, 0.55, 0.8), false, 1.5)
+	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.2, 0.55, 0.8), false, 2.0)
 
-	# グリッド
-	for g in range(1, 5):
-		var gx := cham_x + g * (cham_w / 5.0)
-		draw_line(Vector2(gx, cham_y), Vector2(gx, cham_y + cham_h), Color(0.15, 0.3, 0.45, 0.3), 1.0)
-		var gy := cham_y + g * (cham_h / 5.0)
-		draw_line(Vector2(cham_x, gy), Vector2(cham_x + cham_w, gy), Color(0.15, 0.3, 0.45, 0.3), 1.0)
+	for g in range(1, 6):
+		var gx := cham_x + g * (cham_w / 6.0)
+		draw_line(Vector2(gx, cham_y), Vector2(gx, cham_y + cham_h), Color(0.15, 0.3, 0.45, 0.35), 1.0)
+	for g in range(1, 6):
+		var gy := cham_y + g * (cham_h / 6.0)
+		draw_line(Vector2(cham_x, gy), Vector2(cham_x + cham_w, gy), Color(0.15, 0.3, 0.45, 0.35), 1.0)
 
-	# 台座と円形発光リング
-	var ped_center := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h - 45)
-	_draw_custom_ellipse(ped_center, 90.0, 24.0, Color(0.1, 0.3, 0.45, 0.8))
-	_draw_custom_ellipse_arc(ped_center, 90.0, 24.0, Color(0.3, 0.9, 1.0), 2.0)
+	var ped_center := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h - 75)
+	_draw_custom_ellipse(ped_center, 240.0, 56.0, Color(0.1, 0.3, 0.45, 0.8))
+	_draw_custom_ellipse_arc(ped_center, 240.0, 56.0, Color(0.3, 0.9, 1.0), 3.0)
 
-	# 中央で回転するフォン・ノイマン・プローブのホログラム（存在感のある1.3倍スケール）
-	var probe_c := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h * 0.45)
-	_draw_hologram_probe(probe_c, probe_rot, 1.3)
+	var probe_c := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h * 0.44)
+	_draw_hologram_probe(probe_c, probe_rot, 2.6)
 
-	# プログレスバー
-	var pb_x := cham_x + 20.0
-	var pb_y := cham_y + cham_h - 32.0
-	var pb_w := cham_w - 40.0
-	draw_rect(Rect2(pb_x, pb_y, pb_w, 24), Color(0.08, 0.15, 0.22))
-	draw_rect(Rect2(pb_x, pb_y, pb_w * printing_progress, 24), Color(0.2, 0.7, 0.9, 0.8))
-	draw_rect(Rect2(pb_x, pb_y, pb_w, 24), Color(0.3, 0.85, 1.0), false, 1.5)
-	draw_string(use_font, Vector2(pb_x, pb_y + 18), "造形進捗 (PRINTING): " + str(int(printing_progress * 100)) + "%", HORIZONTAL_ALIGNMENT_CENTER, pb_w, 14, Color(1, 1, 1))
+	# 造形プログレスバー
+	var pb_x := cham_x + 30.0
+	var pb_y := cham_y + cham_h - 60.0
+	var pb_w := cham_w - 60.0
+	var pb_h := 44.0
+	draw_rect(Rect2(pb_x, pb_y, pb_w, pb_h), Color(0.08, 0.15, 0.22))
+	draw_rect(Rect2(pb_x, pb_y, pb_w * printing_progress, pb_h), Color(0.2, 0.7, 0.9, 0.85))
+	draw_rect(Rect2(pb_x, pb_y, pb_w, pb_h), Color(0.3, 0.85, 1.0), false, 2.0)
+	draw_string(use_font, Vector2(pb_x, pb_y + 30), "造形進捗 (PRINTING): " + str(int(printing_progress * 100)) + "%", HORIZONTAL_ALIGNMENT_CENTER, pb_w, 22, Color(1, 1, 1))
 
-	# 下段：THRUSTERS & MINING LASER 情報カード（横並び）
-	var sub_y := cham_y + cham_h + 16.0
-	var sub_w := (cham_w - 12.0) * 0.5
-	# スラスター
-	draw_rect(Rect2(cham_x, sub_y, sub_w, 115), Color(0.05, 0.1, 0.08, 0.85))
-	draw_rect(Rect2(cham_x, sub_y, sub_w, 115), Color(0.3, 0.9, 0.5), false, 1.5)
-	draw_string(use_font, Vector2(cham_x + 8, sub_y + 22), "推進スラスター", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.4, 1.0, 0.6))
-	_draw_mini_thruster(Vector2(cham_x + sub_w * 0.5, sub_y + 56))
-	draw_rect(Rect2(cham_x + 8, sub_y + 92, sub_w - 16, 8), Color(0.1, 0.2, 0.15))
-	draw_rect(Rect2(cham_x + 8, sub_y + 92, (sub_w - 16) * printing_progress, 8), Color(0.3, 1.0, 0.5))
+	# 2. ハードウェアモジュールカード群
+	var sub_y := cham_y + cham_h + 20.0
+	var sub_w := (cham_w - 20.0) * 0.5
+	var sub_h := 280.0
 
-	# レーザー
-	var l_x := cham_x + sub_w + 12.0
-	draw_rect(Rect2(l_x, sub_y, sub_w, 115), Color(0.05, 0.1, 0.08, 0.85))
-	draw_rect(Rect2(l_x, sub_y, sub_w, 115), Color(0.3, 0.9, 0.5), false, 1.5)
-	draw_string(use_font, Vector2(l_x + 8, sub_y + 22), "採掘レーザー", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.4, 1.0, 0.6))
-	_draw_mini_laser(Vector2(l_x + sub_w * 0.5, sub_y + 56))
-	draw_rect(Rect2(l_x + 8, sub_y + 92, sub_w - 16, 8), Color(0.1, 0.2, 0.15))
-	draw_rect(Rect2(l_x + 8, sub_y + 92, (sub_w - 16) * printing_progress, 8), Color(0.3, 1.0, 0.5))
+	# スラスターモジュール
+	draw_rect(Rect2(cham_x, sub_y, sub_w, sub_h), Color(0.05, 0.1, 0.08, 0.88))
+	draw_rect(Rect2(cham_x, sub_y, sub_w, sub_h), Color(0.3, 0.9, 0.5), false, 2.0)
+	draw_string(use_font, Vector2(cham_x + 16, sub_y + 36), "推進スラスター", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.4, 1.0, 0.6))
+	_draw_mini_thruster(Vector2(cham_x + sub_w * 0.5, sub_y + 130.0), 2.0)
+	draw_rect(Rect2(cham_x + 16, sub_y + sub_h - 36, sub_w - 32, 18), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(cham_x + 16, sub_y + sub_h - 36, (sub_w - 32) * printing_progress, 18), Color(0.3, 1.0, 0.5))
 
-	# 下段2：オシロスコープ＆診断マトリクス
-	var diag_y := sub_y + 130.0
-	var diag_h := minf(h - diag_y - 60.0, 240.0)
-	if diag_h > 80.0:
-		_draw_oscilloscope(cham_x, diag_y, cham_w * 0.5 - 6.0, diag_h)
+	# 採掘レーザーモジュール
+	var l_x := cham_x + sub_w + 20.0
+	draw_rect(Rect2(l_x, sub_y, sub_w, sub_h), Color(0.05, 0.1, 0.08, 0.88))
+	draw_rect(Rect2(l_x, sub_y, sub_w, sub_h), Color(0.3, 0.9, 0.5), false, 2.0)
+	draw_string(use_font, Vector2(l_x + 16, sub_y + 36), "採掘レーザー", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.4, 1.0, 0.6))
+	_draw_mini_laser(Vector2(l_x + sub_w * 0.5, sub_y + 130.0), 2.0)
+	draw_rect(Rect2(l_x + 16, sub_y + sub_h - 36, sub_w - 32, 18), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(l_x + 16, sub_y + sub_h - 36, (sub_w - 32) * printing_progress, 18), Color(0.3, 1.0, 0.5))
 
-		var mx_x := cham_x + cham_w * 0.5 + 6.0
-		var mx_w := cham_w * 0.5 - 6.0
-		draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.04, 0.08, 0.12, 0.9))
-		draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.2, 0.55, 0.75), false, 1.2)
-		draw_string(use_font, Vector2(mx_x + 8, diag_y + 24), "機体自己診断テレメトリ", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.3, 0.85, 1.0))
-		draw_string(use_font, Vector2(mx_x + 8, diag_y + 52), "装甲完全性: 100% [正常]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
-		draw_string(use_font, Vector2(mx_x + 8, diag_y + 76), "量子コア稼働: ONLINE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
-		draw_string(use_font, Vector2(mx_x + 8, diag_y + 100), "複製サイクル: 同期中", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
-		draw_string(use_font, Vector2(mx_x + 8, diag_y + 124), "ナノ材料供給: 安定", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.4, 0.95, 0.6))
+	# 3. オシロスコープ波形モニター＆機体自己診断テレメトリ
+	var diag_y := sub_y + sub_h + 20.0
+	var diag_h := 380.0
+	_draw_oscilloscope(cham_x, diag_y, cham_w * 0.48, diag_h)
+
+	var mx_x := cham_x + cham_w * 0.5 + 8.0
+	var mx_w := cham_w * 0.5 - 8.0
+	draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.04, 0.08, 0.12, 0.92))
+	draw_rect(Rect2(mx_x, diag_y, mx_w, diag_h), Color(0.2, 0.55, 0.75), false, 2.0)
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 40), "自己診断テレメトリ", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.3, 0.85, 1.0))
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 90), "装甲完全性: 100% [正常]", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.4, 0.95, 0.6))
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 140), "量子コア稼働: ONLINE", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.4, 0.95, 0.6))
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 190), "複製サイクル: 同期中 93%", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.4, 0.95, 0.6))
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 240), "ナノ材料供給: 安定", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.4, 0.95, 0.6))
+	draw_string(use_font, Vector2(mx_x + 16, diag_y + 290), "推進推力: 4,200 kN [正常]", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.4, 0.95, 0.6))
+
+	# 4. 画面下部：機体性能比較＆クラフトキューパネル
+	var q_y := diag_y + diag_h + 20.0
+	var q_h := maxf(h - q_y - 60.0, 300.0)
+	draw_rect(Rect2(cham_x, q_y, cham_w, q_h), Color(0.03, 0.07, 0.13, 0.94))
+	draw_rect(Rect2(cham_x, q_y, cham_w, q_h), Color(0.35, 0.75, 0.95), false, 2.0)
+	draw_string(use_font, Vector2(cham_x + 20, q_y + 44), "★ 3Dナノプリント実行キュー＆機体強化仕様 ★", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(1.0, 0.85, 0.2))
+
+	var stat_col_w := (cham_w - 40.0) * 0.5
+	var col1_x := cham_x + 20.0
+	var col2_x := cham_x + 20.0 + stat_col_w
+	draw_string(use_font, Vector2(col1_x, q_y + 95), "採掘出力: +180% (高密度)", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.92, 1.0))
+	draw_string(use_font, Vector2(col1_x, q_y + 145), "推進推力: 4,200 kN [ツイン]", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.92, 1.0))
+	draw_string(use_font, Vector2(col2_x, q_y + 95), "ナナイト消費効率: 98.2%", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.92, 1.0))
+	draw_string(use_font, Vector2(col2_x, q_y + 145), "自己複製レート: 1基/分", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.92, 1.0))
+
+	var ex_btn_h := 80.0
+	draw_rect(Rect2(cham_x + 16.0, q_y + q_h - ex_btn_h - 16.0, cham_w - 32.0, ex_btn_h), Color(0.1, 0.25, 0.35, 0.9))
+	draw_rect(Rect2(cham_x + 16.0, q_y + q_h - ex_btn_h - 16.0, cham_w - 32.0, ex_btn_h), Color(0.3, 0.95, 1.0), false, 2.0)
+	draw_string(use_font, Vector2(cham_x + 20, q_y + q_h - 32.0), "★ 3Dナノプリント実行待機中 // ナノマシン全系統正常 ★", HORIZONTAL_ALIGNMENT_CENTER, cham_w - 40.0, 24, Color(0.4, 0.98, 1.0))
