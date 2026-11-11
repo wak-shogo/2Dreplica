@@ -29,6 +29,7 @@ var nebulae: Array[Dictionary] = []
 
 # 自動テスト・実機プレイテスト用
 var is_auto_test_mode: bool = false
+var is_portrait_test_mode: bool = false
 var auto_test_timer: float = 0.0
 var auto_test_step: int = 0
 var auto_test_substep: int = 0
@@ -41,6 +42,12 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_args():
 		if arg == "--auto-test":
 			is_auto_test_mode = true
+		elif arg == "--portrait-test":
+			is_auto_test_mode = true
+			is_portrait_test_mode = true
+			get_viewport().size = Vector2i(420, 880)
+			if DisplayServer.has_feature(DisplayServer.FEATURE_SUBWINDOWS):
+				DisplayServer.window_set_size(Vector2i(420, 880))
 		elif arg == "--play-test":
 			is_play_test_mode = true
 
@@ -314,9 +321,15 @@ func _handle_camera(delta: float) -> void:
 
 	# スムーズズーム補間
 	current_zoom = lerpf(current_zoom, target_zoom, delta * 6.0)
-	camera.zoom = Vector2(current_zoom, current_zoom)
+	var vp_sz := get_viewport().get_visible_rect().size
+	var effective_zoom := current_zoom
+	if vp_sz.y > vp_sz.x: # スマホ縦画面（ポートレート適応）
+		var scale_fit := clampf(vp_sz.x / 1100.0, 0.55, 1.0)
+		effective_zoom = current_zoom * scale_fit
+
+	camera.zoom = Vector2(effective_zoom, effective_zoom)
 	if primary_planet != null:
-		primary_planet.camera_zoom = current_zoom
+		primary_planet.camera_zoom = effective_zoom
 
 	# 追従ターゲット
 	var target_world_pos := Vector2.ZERO
@@ -427,7 +440,7 @@ func _process_auto_test(delta: float) -> void:
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Stage 0 Bare Planet view (pure procedural open world)...")
-				_capture_screenshot("capture_stage0_bare.png")
+				_capture_screenshot("capture_portrait_stage0.png" if is_portrait_test_mode else "capture_stage0_bare.png")
 				auto_test_step = 1
 				auto_test_substep = 0
 				auto_test_timer = 0.0
@@ -454,7 +467,7 @@ func _process_auto_test(delta: float) -> void:
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Phase 1 Factory view (procedural curved surface factory)...")
-				_capture_screenshot("capture_phase1_factory.png")
+				_capture_screenshot("capture_portrait_factory.png" if is_portrait_test_mode else "capture_phase1_factory.png")
 				auto_test_step = 2
 				auto_test_substep = 0
 				auto_test_timer = 0.0
@@ -462,11 +475,25 @@ func _process_auto_test(delta: float) -> void:
 			# Step 2: 3D Nano-Printer & Tech Tree全画面ホログラムUI
 			if auto_test_substep == 0:
 				tech_tree_screen.open()
+				if is_portrait_test_mode:
+					tech_tree_screen.mobile_tab = 1 # Tech Treeタブ
 				auto_test_substep = 1
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Tech Tree UI view (procedural nano-printer screen)...")
-				_capture_screenshot("capture_phase2_techtree.png")
+				_capture_screenshot("capture_portrait_techtree.png" if is_portrait_test_mode else "capture_phase2_techtree.png")
+				if is_portrait_test_mode:
+					# ポートレートモードでは3D Nano-Printerタブも撮影
+					tech_tree_screen.mobile_tab = 0
+					auto_test_substep = 2
+					auto_test_timer = 0.0
+				else:
+					auto_test_step = 3
+					auto_test_substep = 0
+					auto_test_timer = 0.0
+			elif auto_test_substep == 2 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Portrait 3D Nano-Printer Tab...")
+				_capture_screenshot("capture_portrait_printer.png")
 				auto_test_step = 3
 				auto_test_substep = 0
 				auto_test_timer = 0.0
@@ -489,7 +516,7 @@ func _process_auto_test(delta: float) -> void:
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Planet Orbital view (procedural circular planet & core)...")
-				_capture_screenshot("capture_phase3_planet.png")
+				_capture_screenshot("capture_portrait_planet.png" if is_portrait_test_mode else "capture_phase3_planet.png")
 				auto_test_step = 4
 				auto_test_substep = 0
 				auto_test_timer = 0.0
@@ -512,7 +539,7 @@ func _process_auto_test(delta: float) -> void:
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Mass Driver & Asteroid view (procedural deep space RTS)...")
-				_capture_screenshot("capture_phase4_asteroid.png")
+				_capture_screenshot("capture_portrait_asteroid.png" if is_portrait_test_mode else "capture_phase4_asteroid.png")
 				auto_test_step = 5
 				auto_test_substep = 0
 				auto_test_timer = 0.0
@@ -522,9 +549,10 @@ func _process_auto_test(delta: float) -> void:
 				get_tree().quit(0)
 
 func _capture_screenshot(filename: String) -> void:
-	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	if img != null:
-		var save_path := "res://" + filename
-		img.save_png(save_path)
-		print("[TEST] Saved: ", save_path)
+	if img != null and not img.is_empty():
+		var global_path := ProjectSettings.globalize_path("res://" + filename)
+		img.save_png(global_path)
+		print("[TEST] Saved: ", global_path)
+	else:
+		print("[TEST] Warning: viewport image was null or empty")

@@ -88,15 +88,17 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 	# 設定モーダルが開いている場合
 	if is_settings_open:
 		var vp_sz := get_viewport().get_visible_rect().size
-		var mw := 380.0
+		var mw := minf(vp_sz.x - 24.0, 380.0)
 		var mh := 260.0
 		var mx := (vp_sz.x - mw) * 0.5
 		var my := (vp_sz.y - mh) * 0.5
+		var opt_w := mw - 40.0
+		var opt_x := mx + 20.0
 
-		var opt_sfx := Rect2(mx + 30, my + 60, 320, 32)
-		var opt_disp := Rect2(mx + 30, my + 105, 320, 32)
-		var opt_touch := Rect2(mx + 30, my + 150, 320, 32)
-		var opt_close := Rect2(mx + 30, my + 205, 320, 34)
+		var opt_sfx := Rect2(opt_x, my + 56, opt_w, 34)
+		var opt_disp := Rect2(opt_x, my + 100, opt_w, 34)
+		var opt_touch := Rect2(opt_x, my + 144, opt_w, 34)
+		var opt_close := Rect2(opt_x, my + 196, opt_w, 36)
 
 		if opt_sfx.has_point(pos):
 			setting_sfx_level = (setting_sfx_level + 2) % 3
@@ -134,7 +136,10 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 		return
 
 	# 1. 仮想ジョイスティック（画面左下）
-	if pos.distance_to(joystick_center) <= joystick_radius * 1.5 or (pos.x < 260.0 and pos.y > 480.0):
+	var vp_size := get_viewport().get_visible_rect().size
+	var is_portrait := vp_size.y > vp_size.x
+	var joy_zone := Rect2(0.0, vp_size.y - 260.0, minf(vp_size.x * 0.45, 220.0), 260.0) if is_portrait else Rect2(0.0, vp_size.y - 240.0, 260.0, 240.0)
+	if pos.distance_to(joystick_center) <= joystick_radius * 1.6 or joy_zone.has_point(pos):
 		is_joystick_touching = true
 		joystick_touch_id = touch_id
 		_update_joystick_pos(pos)
@@ -273,17 +278,33 @@ func _draw() -> void:
 	if is_tech_open:
 		return
 
-	# 1. 左上 HUD（エンブレム、複合ゲージ、CYCLE、エネルギーバー）
-	_draw_top_left_hud(20.0, 20.0)
+	var is_portrait := h > w
 
-	# 2. 右上 HUD（4大リソース：NANO, ORE, SILICON, FLEET）
-	_draw_top_right_hud(w - 215.0, 20.0)
+	if is_portrait:
+		var pw := minf((w - 20.0) * 0.5, 195.0)
+		# 1. 左上 HUD（エンブレム、複合ゲージ、CYCLE、エネルギーバー）
+		_draw_top_left_hud(8.0, 10.0, pw)
 
-	# 3. 左下 HUD（HP, SUB）
-	_draw_bottom_left_hud(20.0, h - 80.0)
+		# 2. 右上 HUD（4大リソース：NANO, ORE, SILICON, FLEET）
+		_draw_top_right_hud(w - pw - 8.0, 10.0, pw)
 
-	# 4. 右下 HUD（THERM, CARGO - 完全に露出）
-	_draw_bottom_right_hud(w - 215.0, h - 80.0)
+		# 3. 左下 HUD（HP, SUB）- タッチコントロール上段に配置
+		_draw_bottom_left_hud(8.0, h - 265.0, pw)
+
+		# 4. 右下 HUD（THERM, CARGO - 完全に露出）
+		_draw_bottom_right_hud(w - pw - 8.0, h - 265.0, pw)
+	else:
+		# 1. 左上 HUD（エンブレム、複合ゲージ、CYCLE、エネルギーバー）
+		_draw_top_left_hud(20.0, 20.0, 195.0)
+
+		# 2. 右上 HUD（4大リソース：NANO, ORE, SILICON, FLEET）
+		_draw_top_right_hud(w - 215.0, 20.0, 195.0)
+
+		# 3. 左下 HUD（HP, SUB）
+		_draw_bottom_left_hud(20.0, h - 80.0, 190.0)
+
+		# 4. 右下 HUD（THERM, CARGO - 完全に露出）
+		_draw_bottom_right_hud(w - 215.0, h - 80.0, 195.0)
 
 	# 5. 下部操作ガイドバー（左右HUDと絶対に干渉しないコンパクト中央配置）
 	_draw_control_guide_bar(w, h)
@@ -334,8 +355,8 @@ func _draw_cyber_panel(rect: Rect2, border_color: Color, corner_cut: float = 7.0
 	draw_line(Vector2(x0 + c, y1), Vector2(x0 + c + 8, y1), Color(0.4, 0.95, 1.0, 0.8), 2.0)
 	draw_line(Vector2(x1 - c - 8, y1), Vector2(x1 - c, y1), Color(0.4, 0.95, 1.0, 0.8), 2.0)
 
-func _draw_top_left_hud(ox: float, oy: float) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, 195.0, 98.0), Color(0.3, 0.55, 0.75, 0.95))
+func _draw_top_left_hud(ox: float, oy: float, pw: float = 195.0) -> void:
+	_draw_cyber_panel(Rect2(ox, oy, pw, 98.0), Color(0.3, 0.55, 0.75, 0.95))
 
 	# 赤いエンブレムアイコン
 	var emb_pos := Vector2(ox + 22.0, oy + 24.0)
@@ -387,8 +408,8 @@ func _draw_top_left_hud(ox: float, oy: float) -> void:
 	draw_rect(Rect2(ox + 10.0, oy + 76.0, 175.0, 16.0), Color(0.2, 0.5, 0.7, 0.5), false, 1.0)
 	draw_string(font, Vector2(ox + 16.0, oy + 88.0), "SYS TELEMETRY // FPS: " + str(int(current_fps)) + " (" + ms_str + "ms)", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.4, 0.95, 1.0))
 
-func _draw_top_right_hud(ox: float, oy: float) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, 195.0, 98.0), Color(0.3, 0.55, 0.75, 0.95))
+func _draw_top_right_hud(ox: float, oy: float, pw: float = 195.0) -> void:
+	_draw_cyber_panel(Rect2(ox, oy, pw, 98.0), Color(0.3, 0.55, 0.75, 0.95))
 
 	var font := ThemeDB.fallback_font
 	
@@ -418,25 +439,26 @@ func _draw_top_right_hud(ox: float, oy: float) -> void:
 		draw_string(font, Vector2(ox + 26.0, ry), item["label"] + ":", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.7, 0.8, 0.9))
 		draw_string(font, Vector2(ox + 98.0, ry), item["val"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.98, 0.98, 0.98))
 
-func _draw_bottom_left_hud(ox: float, oy: float) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, 190.0, 64.0), Color(0.3, 0.55, 0.75, 0.95))
+func _draw_bottom_left_hud(ox: float, oy: float, pw: float = 190.0) -> void:
+	_draw_cyber_panel(Rect2(ox, oy, pw, 64.0), Color(0.3, 0.55, 0.75, 0.95))
 
 	var font := ThemeDB.fallback_font
 
 	# ❤️ HPバー
 	draw_string(font, Vector2(ox + 8.0, oy + 26.0), "❤️ HP", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.4, 0.5))
-	draw_rect(Rect2(ox + 48.0, oy + 14.0, 90.0, 15.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 48.0, oy + 14.0, 90.0, 15.0), Color(0.95, 0.35, 0.4))
-	draw_string(font, Vector2(ox + 144.0, oy + 26.0), "56/56", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
+	var bar_w := minf(pw - 100.0, 90.0)
+	draw_rect(Rect2(ox + 48.0, oy + 14.0, bar_w, 15.0), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(ox + 48.0, oy + 14.0, bar_w, 15.0), Color(0.95, 0.35, 0.4))
+	draw_string(font, Vector2(ox + 52.0 + bar_w, oy + 26.0), "56/56", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
 	# ➕ SUBバー
 	draw_string(font, Vector2(ox + 8.0, oy + 50.0), "➕ SUB", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.3, 1.0, 0.5))
-	draw_rect(Rect2(ox + 48.0, oy + 38.0, 90.0, 15.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 48.0, oy + 38.0, 32.0, 15.0), Color(0.3, 0.9, 0.5))
-	draw_string(font, Vector2(ox + 144.0, oy + 50.0), "5/15", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
+	draw_rect(Rect2(ox + 48.0, oy + 38.0, bar_w, 15.0), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(ox + 48.0, oy + 38.0, bar_w * 0.35, 15.0), Color(0.3, 0.9, 0.5))
+	draw_string(font, Vector2(ox + 52.0 + bar_w, oy + 50.0), "5/15", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
-func _draw_bottom_right_hud(ox: float, oy: float) -> void:
-	_draw_cyber_panel(Rect2(ox, oy, 195.0, 64.0), Color(0.3, 0.55, 0.75, 0.95))
+func _draw_bottom_right_hud(ox: float, oy: float, pw: float = 195.0) -> void:
+	_draw_cyber_panel(Rect2(ox, oy, pw, 64.0), Color(0.3, 0.55, 0.75, 0.95))
 
 	var font := ThemeDB.fallback_font
 
@@ -444,10 +466,11 @@ func _draw_bottom_right_hud(ox: float, oy: float) -> void:
 	var therm_val := 256
 	if game_state != null and game_state.upgrades.has("laser_power"):
 		therm_val = 256 + (game_state.upgrades["laser_power"] - 1) * 32
+	var bar_w := minf(pw - 110.0, 80.0)
 	draw_string(font, Vector2(ox + 8.0, oy + 26.0), "❄️ THERM", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.3, 0.85, 1.0))
-	draw_rect(Rect2(ox + 60.0, oy + 14.0, 80.0, 15.0), Color(0.18, 0.22, 0.26))
-	draw_rect(Rect2(ox + 60.0, oy + 14.0, 80.0, 15.0), Color(0.2, 0.8, 0.95))
-	draw_string(font, Vector2(ox + 145.0, oy + 26.0), str(therm_val) + "/256", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
+	draw_rect(Rect2(ox + 60.0, oy + 14.0, bar_w, 15.0), Color(0.18, 0.22, 0.26))
+	draw_rect(Rect2(ox + 60.0, oy + 14.0, bar_w, 15.0), Color(0.2, 0.8, 0.95))
+	draw_string(font, Vector2(ox + 65.0 + bar_w, oy + 26.0), str(therm_val) + "/256", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
 	# 📦 CARGO (実際の所持鉱石量と完全同期連動＆容量スケーリング)
 	var cur_ore: float = 0.0
@@ -470,25 +493,26 @@ func _draw_bottom_right_hud(ox: float, oy: float) -> void:
 			max_cargo = 500.0
 
 	var fill_ratio := clampf(total_cargo / max_cargo, 0.0, 1.0)
-	var bar_width := minf(80.0 * fill_ratio, 80.0)
+	var filled_width := minf(bar_w * fill_ratio, bar_w)
 
 	draw_string(font, Vector2(ox + 8.0, oy + 50.0), "📦 CARGO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.65, 0.2))
-	draw_rect(Rect2(ox + 60.0, oy + 38.0, 80.0, 15.0), Color(0.18, 0.22, 0.26))
-	if bar_width > 0.0:
-		draw_rect(Rect2(ox + 60.0, oy + 38.0, bar_width, 15.0), Color(0.95, 0.6, 0.2))
+	draw_rect(Rect2(ox + 60.0, oy + 38.0, bar_w, 15.0), Color(0.18, 0.22, 0.26))
+	if filled_width > 0.0:
+		draw_rect(Rect2(ox + 60.0, oy + 38.0, filled_width, 15.0), Color(0.95, 0.6, 0.2))
 
 	var cargo_str := ""
 	if max_cargo >= 1000.0:
 		cargo_str = "%.1fk/%.0fk" % [total_cargo / 1000.0, max_cargo / 1000.0]
 	else:
 		cargo_str = str(int(total_cargo)) + "/" + str(int(max_cargo))
-	draw_string(font, Vector2(ox + 145.0, oy + 50.0), cargo_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
+	draw_string(font, Vector2(ox + 65.0 + bar_w, oy + 50.0), cargo_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1))
 
 func _draw_control_guide_bar(w: float, h: float) -> void:
-	var bar_w := 580.0
-	var bar_h := 22.0
+	var is_portrait := h > w
+	var bar_w := minf(w - 20.0, 580.0)
+	var bar_h := 20.0 if is_portrait else 22.0
 	var bx := (w - bar_w) * 0.5
-	var by := h - 26.0
+	var by := h - 24.0
 
 	_draw_cyber_panel(Rect2(bx, by, bar_w, bar_h), Color(0.25, 0.65, 0.85, 0.8), 4.0)
 
@@ -496,23 +520,25 @@ func _draw_control_guide_bar(w: float, h: float) -> void:
 	var guide_text := ""
 	match cur_p:
 		GameState.Phase.PHASE_1_SURVIVAL, GameState.Phase.PHASE_2_SURFACE_INDUSTRY:
-			guide_text = "🕹️ JOYSTICK: MOVE/HOVER   |   ⛏️ TAP SCREEN: MINING LASER   |   ⚙️ BUILD FACILITY"
+			guide_text = "🕹️ MOVE | ⛏️ MINE | ⚙️ BUILD FACILITY" if is_portrait else "🕹️ JOYSTICK: MOVE/HOVER   |   ⛏️ TAP SCREEN: MINING LASER   |   ⚙️ BUILD FACILITY"
 		GameState.Phase.PHASE_3_INTERPLANETARY:
-			guide_text = "🕹️ JOYSTICK: ORBITAL BURN VECTOR   |   🚀 BURN: ADJUST ORBIT   |   📡 SCAN: CORE SURVEY"
+			guide_text = "🕹️ BURN VECTOR | 🚀 THRUST | 📡 SCAN" if is_portrait else "🕹️ JOYSTICK: ORBITAL BURN VECTOR   |   🚀 BURN: ADJUST ORBIT   |   📡 SCAN: CORE SURVEY"
 		GameState.Phase.PHASE_4_ORBITAL_WAR:
-			guide_text = "🕹️ JOYSTICK: AIM MASS DRIVER   |   💥 FIRE: LAUNCH CARGO   |   🛸 SORTIE: FLEET RTS"
+			guide_text = "🕹️ AIM DRIVER | 💥 FIRE | 🛸 FLEET" if is_portrait else "🕹️ JOYSTICK: AIM MASS DRIVER   |   💥 FIRE: LAUNCH CARGO   |   🛸 SORTIE: FLEET RTS"
 		_:
 			guide_text = "🕹️ TOUCH CONTROLS READY"
 
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(bx, by + 15.0), guide_text, HORIZONTAL_ALIGNMENT_CENTER, bar_w, 10, Color(0.4, 0.92, 1.0))
+	var fsize := 8 if is_portrait else 10
+	draw_string(font, Vector2(bx, by + (14.0 if is_portrait else 15.0)), guide_text, HORIZONTAL_ALIGNMENT_CENTER, bar_w, fsize, Color(0.4, 0.92, 1.0))
 
-func _draw_toast_banner(w: float, _h: float) -> void:
+func _draw_toast_banner(w: float, h: float) -> void:
 	# 洗練されたSFコンパクト通知ピル（上部中央を遮らない）
-	var tw := 360.0
+	var is_portrait := h > w
+	var tw := minf(w - 24.0, 360.0)
 	var th := 24.0
 	var tx := (w - tw) * 0.5
-	var ty := 18.0
+	var ty := 148.0 if is_portrait else 18.0
 
 	var alpha := clampf(toast_timer / 0.4, 0.0, 1.0)
 	draw_rect(Rect2(tx, ty, tw, th), Color(0.04, 0.08, 0.12, 0.88 * alpha))
@@ -525,18 +551,33 @@ func _draw_touch_controls(w: float, h: float) -> void:
 	var font := ThemeDB.fallback_font
 	var t := Time.get_ticks_msec() * 0.004
 	var cur_p := game_state.current_phase if game_state != null else 1
+	var is_portrait := h > w
 
 	# 座標更新
-	joystick_center = Vector2(100.0, h - 140.0)
+	if is_portrait:
+		joystick_center = Vector2(75.0, h - 135.0)
+		joystick_radius = 42.0
+		var act_w := minf(130.0, w * 0.35)
+		btn_thrust_rect = Rect2(w - act_w - 10.0, h - 188.0, act_w, 46.0)
+		btn_mine_rect = Rect2(w - act_w - 10.0, h - 132.0, act_w, 46.0)
+		btn_build_rect = Rect2(10.0, h - 70.0, w - 20.0, 42.0)
+
+		var top_btn_w := (w - 28.0) / 3.0
+		btn_settings_rect = Rect2(8.0, 114.0, top_btn_w, 28.0)
+		btn_tech_rect = Rect2(8.0 + top_btn_w + 6.0, 114.0, top_btn_w, 28.0)
+		btn_phase_rect = Rect2(8.0 + (top_btn_w + 6.0) * 2.0, 114.0, top_btn_w, 28.0)
+	else:
+		joystick_center = Vector2(100.0, h - 140.0)
+		joystick_radius = 48.0
+		btn_mine_rect = Rect2(w - 140.0, h - 150.0, 120.0, 50.0)
+		btn_thrust_rect = Rect2(w - 275.0, h - 150.0, 120.0, 50.0)
+		btn_build_rect = Rect2((w - 520.0) * 0.5, h - 68.0, 520.0, 36.0)
+		btn_settings_rect = Rect2(w - 325.0, 122.0, 105.0, 28.0)
+		btn_tech_rect = Rect2(w - 215.0, 122.0, 100.0, 28.0)
+		btn_phase_rect = Rect2(w - 110.0, 122.0, 90.0, 28.0)
+
 	if not is_joystick_touching:
 		joystick_knob_pos = joystick_center
-
-	btn_mine_rect = Rect2(w - 140.0, h - 150.0, 120.0, 50.0)
-	btn_thrust_rect = Rect2(w - 275.0, h - 150.0, 120.0, 50.0)
-	btn_build_rect = Rect2((w - 520.0) * 0.5, h - 68.0, 520.0, 36.0)
-	btn_settings_rect = Rect2(w - 325.0, 122.0, 105.0, 28.0)
-	btn_tech_rect = Rect2(w - 215.0, 122.0, 100.0, 28.0)
-	btn_phase_rect = Rect2(w - 110.0, 122.0, 90.0, 28.0)
 
 	# 1. 仮想ジョイスティック（左下）
 	var joy_alpha := 0.75 if is_joystick_touching else 0.4
@@ -633,10 +674,12 @@ func _draw_settings_modal(w: float, h: float) -> void:
 	# 全画面半透明バックドロップ
 	draw_rect(Rect2(0, 0, w, h), Color(0.0, 0.0, 0.0, 0.65))
 
-	var mw := 380.0
+	var mw := minf(w - 24.0, 380.0)
 	var mh := 260.0
 	var mx := (w - mw) * 0.5
 	var my := (h - mh) * 0.5
+	var opt_w := mw - 40.0
+	var opt_x := mx + 20.0
 
 	_draw_cyber_panel(Rect2(mx, my, mw, mh), Color(0.4, 0.85, 1.0, 0.95), 8.0)
 
@@ -645,14 +688,14 @@ func _draw_settings_modal(w: float, h: float) -> void:
 	draw_line(Vector2(mx + 20, my + 42.0), Vector2(mx + mw - 20, my + 42.0), Color(0.3, 0.7, 0.9, 0.5), 1.0)
 
 	# Option 1: SFX Volume
-	var opt_sfx := Rect2(mx + 30, my + 56, 320, 34)
+	var opt_sfx := Rect2(opt_x, my + 56, opt_w, 34)
 	draw_rect(opt_sfx, Color(0.08, 0.14, 0.22, 0.85))
 	draw_rect(opt_sfx, Color(0.3, 0.7, 0.9, 0.8), false, 1.0)
 	var sfx_txt := "🔊 SFX VOLUME: " + ("100% [HIGH]" if setting_sfx_level == 2 else ("50% [MEDIUM]" if setting_sfx_level == 1 else "OFF [MUTED]"))
 	draw_string(font, Vector2(opt_sfx.position.x, opt_sfx.position.y + 22.0), sfx_txt, HORIZONTAL_ALIGNMENT_CENTER, opt_sfx.size.x, 11, Color(0.95, 0.95, 1.0))
 
 	# Option 2: Display Mode
-	var opt_disp := Rect2(mx + 30, my + 100, 320, 34)
+	var opt_disp := Rect2(opt_x, my + 100, opt_w, 34)
 	draw_rect(opt_disp, Color(0.08, 0.14, 0.22, 0.85))
 	draw_rect(opt_disp, Color(0.3, 0.7, 0.9, 0.8), false, 1.0)
 	var is_fs := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN if DisplayServer.has_feature(DisplayServer.FEATURE_SUBWINDOWS) else false
@@ -660,14 +703,14 @@ func _draw_settings_modal(w: float, h: float) -> void:
 	draw_string(font, Vector2(opt_disp.position.x, opt_disp.position.y + 22.0), disp_txt, HORIZONTAL_ALIGNMENT_CENTER, opt_disp.size.x, 11, Color(0.95, 0.95, 1.0))
 
 	# Option 3: Touch Controls Overlay
-	var opt_touch := Rect2(mx + 30, my + 144, 320, 34)
+	var opt_touch := Rect2(opt_x, my + 144, opt_w, 34)
 	draw_rect(opt_touch, Color(0.08, 0.14, 0.22, 0.85))
 	draw_rect(opt_touch, Color(0.3, 0.7, 0.9, 0.8), false, 1.0)
 	var touch_txt := "📱 MOBILE TOUCH CONTROLS: " + ("ENABLED [VISIBLE]" if setting_touch_hud else "COMPACT [HIDDEN]")
 	draw_string(font, Vector2(opt_touch.position.x, opt_touch.position.y + 22.0), touch_txt, HORIZONTAL_ALIGNMENT_CENTER, opt_touch.size.x, 11, Color(0.95, 0.95, 1.0))
 
 	# Option 4: Close Button
-	var opt_close := Rect2(mx + 30, my + 196, 320, 36)
+	var opt_close := Rect2(opt_x, my + 196, opt_w, 36)
 	draw_rect(opt_close, Color(0.12, 0.35, 0.45, 0.9))
 	draw_rect(opt_close, Color(0.4, 0.95, 1.0, 0.95), false, 1.5)
 	draw_string(font, Vector2(opt_close.position.x, opt_close.position.y + 23.0), "✕ CLOSE SETTINGS", HORIZONTAL_ALIGNMENT_CENTER, opt_close.size.x, 12, Color(1.0, 1.0, 1.0))

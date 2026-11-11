@@ -16,6 +16,19 @@ var tree_nodes: Array[Dictionary] = []
 var selected_node_id: String = "root_thruster"
 var hovered_node: Dictionary = {}
 
+var mobile_tab: int = 1 # 0: 3D Nano-Printer, 1: Tech Tree
+var tab_printer_rect: Rect2 = Rect2()
+var tab_tree_rect: Rect2 = Rect2()
+
+func _get_node_screen_pos(node: Dictionary, w: float, h: float) -> Vector2:
+	if h <= w:
+		return node["pos"]
+	var orig_p: Vector2 = node["pos"]
+	var scale := clampf((w - 50.0) / 560.0, 0.52, 0.95)
+	var x_offset := (w - 540.0 * scale) * 0.5
+	var y_offset := 96.0
+	return Vector2(x_offset + (orig_p.x - 640.0) * scale, y_offset + (orig_p.y - 70.0) * scale)
+
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
 	_init_tree_nodes()
@@ -80,34 +93,54 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		# 0. 右上閉じるボタンまたは下部バーのタップで閉じる
 		var vp_size := get_viewport().get_visible_rect().size
-		if Rect2(vp_size.x - 120, 5, 115, 36).has_point(mpos) or Rect2((vp_size.x - 560) * 0.5, vp_size.y - 40, 560, 40).has_point(mpos):
+		var is_portrait := vp_size.y > vp_size.x
+		var close_btn_w := 90.0 if is_portrait else 115.0
+		if Rect2(vp_size.x - close_btn_w - 15.0, 5, close_btn_w + 10.0, 36).has_point(mpos) or Rect2((vp_size.x - minf(vp_size.x - 20.0, 560.0)) * 0.5, vp_size.y - 40, minf(vp_size.x - 20.0, 560.0), 40).has_point(mpos):
 			close()
 			get_viewport().set_input_as_handled()
 			return
 
+		# モバイルポートレートタブ切り替え判定
+		if is_portrait:
+			if tab_printer_rect.has_point(mpos):
+				mobile_tab = 0
+				if game_state != null:
+					game_state.play_sfx(SoundGenerator.create_beep(660.0, 0.06, 0.2))
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+			elif tab_tree_rect.has_point(mpos):
+				mobile_tab = 1
+				if game_state != null:
+					game_state.play_sfx(SoundGenerator.create_beep(880.0, 0.06, 0.2))
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+
 		# 1. 選択中ノードのフローティングHUDバッジクリック判定（ダイレクト・アップグレード対応）
-		for node in tree_nodes:
-			if node["id"] == selected_node_id:
-				var p: Vector2 = node["pos"]
-				var bx := p.x + 28.0
-				var by := p.y - 14.0
-				var bw := 125.0
-				var bh := 28.0
-				if bx + bw > 1260.0:
-					bx = p.x - bw - 28.0
-				if Rect2(bx, by, bw, bh).has_point(mpos):
+		if not is_portrait or mobile_tab == 1:
+			for node in tree_nodes:
+				if node["id"] == selected_node_id:
+					var p := _get_node_screen_pos(node, vp_size.x, vp_size.y)
+					var bx := p.x + 28.0
+					var by := p.y - 14.0
+					var bw := 125.0
+					var bh := 28.0
+					if bx + bw > vp_size.x - 10.0:
+						bx = p.x - bw - 28.0
+					if Rect2(bx, by, bw, bh).has_point(mpos):
+						_upgrade_node(node)
+						get_viewport().set_input_as_handled()
+						return
+
+			# 2. ノード本体サークルクリック判定
+			for node in tree_nodes:
+				var npos := _get_node_screen_pos(node, vp_size.x, vp_size.y)
+				if mpos.distance_to(npos) < 24.0:
+					selected_node_id = node["id"]
 					_upgrade_node(node)
 					get_viewport().set_input_as_handled()
-					return
-
-		# 2. ノード本体サークルクリック判定
-		for node in tree_nodes:
-			var npos: Vector2 = node["pos"]
-			if mpos.distance_to(npos) < 22.0:
-				selected_node_id = node["id"]
-				_upgrade_node(node)
-				get_viewport().set_input_as_handled()
-				break
+					break
 
 func _upgrade_node(node: Dictionary) -> void:
 	if not node["unlocked"]:
@@ -120,7 +153,8 @@ func _upgrade_node(node: Dictionary) -> void:
 			for other in tree_nodes:
 				if other["parents"].has(node["id"]):
 					other["unlocked"] = true
-		var p: Vector2 = node["pos"]
+		var vp_sz := get_viewport().get_visible_rect().size
+		var p: Vector2 = _get_node_screen_pos(node, vp_sz.x, vp_sz.y)
 		for i in range(12):
 			upgrade_sparks.append({
 				"pos": p,
@@ -225,38 +259,64 @@ func _draw() -> void:
 	var vp_size := get_viewport().get_visible_rect().size
 	var w := vp_size.x
 	var h := vp_size.y
+	var is_portrait := h > w
 
 	# 1. 完全プロシージャル・サイバーホログラム背景＆グリッド
 	draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.05, 0.09, 0.98))
-	var split_x := w * 0.46
-	draw_line(Vector2(split_x, 48), Vector2(split_x, h - 40), Color(0.2, 0.55, 0.85, 0.7), 2.0)
 
 	# 2. 上部ヘッダー（ライブリソース完全同期）
 	_draw_header(w)
 
-	# 3. 左画面：3D Nano-Printer 造形ステーション＆回転ホログラム
-	_draw_nano_printer_section(split_x, h)
+	if is_portrait:
+		# スマホ縦画面：上部タブ [🖨 3D NANO-PRINTER] / [🌳 TECH TREE]
+		var tab_w := (w - 26.0) * 0.5
+		tab_printer_rect = Rect2(10.0, 48.0, tab_w, 32.0)
+		tab_tree_rect = Rect2(10.0 + tab_w + 6.0, 48.0, tab_w, 32.0)
 
-	# 4. 右画面：多分岐テックツリー・ノードネットワーク
-	_draw_tech_tree_section(split_x, w, h)
+		# タブ描画
+		var p_col := Color(0.2, 0.8, 1.0, 0.95) if mobile_tab == 0 else Color(0.12, 0.22, 0.3, 0.8)
+		var t_col := Color(1.0, 0.7, 0.2, 0.95) if mobile_tab == 1 else Color(0.12, 0.22, 0.3, 0.8)
+		draw_rect(tab_printer_rect, Color(0.06, 0.1, 0.16, 0.9))
+		draw_rect(tab_printer_rect, p_col, false, 1.8 if mobile_tab == 0 else 1.0)
+		draw_string(ThemeDB.fallback_font, Vector2(tab_printer_rect.position.x, tab_printer_rect.position.y + 21.0), "🖨 3D NANO-PRINTER", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 11, p_col)
+
+		draw_rect(tab_tree_rect, Color(0.06, 0.1, 0.16, 0.9))
+		draw_rect(tab_tree_rect, t_col, false, 1.8 if mobile_tab == 1 else 1.0)
+		draw_string(ThemeDB.fallback_font, Vector2(tab_tree_rect.position.x, tab_tree_rect.position.y + 21.0), "🌳 TECH TREE", HORIZONTAL_ALIGNMENT_CENTER, tab_w, 11, t_col)
+
+		if mobile_tab == 0:
+			_draw_nano_printer_section_portrait(w, h)
+		else:
+			_draw_tech_tree_section_portrait(w, h)
+	else:
+		var split_x := w * 0.46
+		draw_line(Vector2(split_x, 48), Vector2(split_x, h - 40), Color(0.2, 0.55, 0.85, 0.7), 2.0)
+
+		# 3. 左画面：3D Nano-Printer 造形ステーション＆回転ホログラム
+		_draw_nano_printer_section(split_x, h)
+
+		# 4. 右画面：多分岐テックツリー・ノードネットワーク
+		_draw_tech_tree_section(split_x, w, h)
+
+		# 6. オシロスコープ動的波形
+		_draw_live_oscilloscope()
 
 	# 5. 下部モバイル操作ガイド＆タッチ閉じるボタン
 	_draw_mobile_footer_guide(w, h)
 
-	# 6. オシロスコープ動的波形
-	_draw_live_oscilloscope()
-
 	# 7. 選択中＆ホバー中ノードの動的パルスグロー
-	_draw_selected_node_glow()
+	if not is_portrait or mobile_tab == 1:
+		_draw_selected_node_glow()
 
 	# 8. アップグレードパーティクル
 	_draw_upgrade_sparks()
 
 func _draw_mobile_footer_guide(w: float, h: float) -> void:
 	var font := ThemeDB.fallback_font
+	var is_portrait := h > w
 
-	# 最下部 Xboxコントローラーボタン表記を物理的に100%完全隠蔽する不透明フッターパネル
-	var fw := 720.0
+	# 最下部フッターパネル
+	var fw := minf(w - 20.0, 720.0)
 	var fh := 32.0
 	var fx := (w - fw) * 0.5
 	var fy := h - 40.0
@@ -264,14 +324,15 @@ func _draw_mobile_footer_guide(w: float, h: float) -> void:
 	draw_rect(Rect2(fx, fy, fw, fh), Color(0.04, 0.07, 0.12, 1.0))
 	draw_rect(Rect2(fx, fy, fw, fh), Color(0.25, 0.65, 0.9, 0.95), false, 1.5)
 
-	var guide_txt := "👆 TAP / [LMB] SELECT   |   ⚡ TAP / [SPACE] UPGRADE   |   ✕ TAP / [ESC] CLOSE"
-	draw_string(font, Vector2(fx, fy + 21.0), guide_txt, HORIZONTAL_ALIGNMENT_CENTER, fw, 11, Color(0.4, 0.95, 1.0))
+	var guide_txt := "👆 TAP NODE TO SELECT & UPGRADE | ✕ CLOSE" if is_portrait else "👆 TAP / [LMB] SELECT   |   ⚡ TAP / [SPACE] UPGRADE   |   ✕ TAP / [ESC] CLOSE"
+	draw_string(font, Vector2(fx, fy + 21.0), guide_txt, HORIZONTAL_ALIGNMENT_CENTER, fw, 10 if is_portrait else 11, Color(0.4, 0.95, 1.0))
 
 	# 右上閉じるボタン [✕ CLOSE / EXIT]
-	var close_rect := Rect2(w - 120.0, 8.0, 105.0, 26.0)
+	var cb_w := 90.0 if is_portrait else 105.0
+	var close_rect := Rect2(w - cb_w - 10.0, 8.0, cb_w, 26.0)
 	draw_rect(close_rect, Color(0.12, 0.04, 0.06, 1.0))
 	draw_rect(close_rect, Color(1.0, 0.4, 0.4, 0.95), false, 1.2)
-	draw_string(font, Vector2(close_rect.position.x, close_rect.position.y + 17.0), "✕ CLOSE [ESC]", HORIZONTAL_ALIGNMENT_CENTER, close_rect.size.x, 10, Color(1.0, 0.6, 0.6))
+	draw_string(font, Vector2(close_rect.position.x, close_rect.position.y + 17.0), "✕ CLOSE", HORIZONTAL_ALIGNMENT_CENTER, close_rect.size.x, 10, Color(1.0, 0.6, 0.6))
 
 func _draw_live_oscilloscope() -> void:
 	# 左下 EM110 モニター画面 (x: 36 to 110, y: 628 to 678)
@@ -293,7 +354,8 @@ func _draw_live_oscilloscope() -> void:
 func _draw_selected_node_glow() -> void:
 	var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.006) * 0.18
 	for node in tree_nodes:
-		var p: Vector2 = node["pos"]
+		var vp_sz := get_viewport().get_visible_rect().size
+		var p: Vector2 = _get_node_screen_pos(node, vp_sz.x, vp_sz.y)
 		if node["id"] == selected_node_id:
 			var col: Color = Color(1.0, 0.8, 0.2, 0.5) if node["color_type"] == "orange" else Color(0.3, 0.9, 1.0, 0.5)
 			# 呼吸するように明滅する外周光輪＆二重選択リング（実測ノード中心に完全同期）
@@ -375,33 +437,39 @@ func _draw_header(w: float) -> void:
 		cur_nano = int(game_state.resources.get("nanites", game_state.resources.get("nano", 29.0)))
 		cur_data = int(game_state.resources.get("ore", 100.0))
 
-	# ⚡ ENERGY
-	draw_string(font, Vector2(25, 28), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.85, 0.2))
-	var e_str := str(cur_e) + "/" + str(max_e)
-	draw_rect(Rect2(105, 13, 105, 20), Color(0.12, 0.16, 0.22))
-	draw_rect(Rect2(105, 13, 105, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(110, 27), e_str, HORIZONTAL_ALIGNMENT_CENTER, 95, 11, Color(1, 1, 1))
-
-	# ⚙ NANITES
-	draw_string(font, Vector2(235, 28), "⚙ NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.3, 0.9, 0.85))
-	var n_str := str(cur_nano) + "/390"
-	draw_rect(Rect2(325, 13, 95, 20), Color(0.12, 0.16, 0.22))
-	draw_rect(Rect2(325, 13, 95, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(330, 27), n_str, HORIZONTAL_ALIGNMENT_CENTER, 85, 11, Color(1, 1, 1))
-
-	# 💾 DATA
-	draw_string(font, Vector2(445, 28), "💾 DATA", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.5, 1.0))
-	var d_str := str(cur_data)
-	draw_rect(Rect2(515, 13, 85, 20), Color(0.12, 0.16, 0.22))
-	draw_rect(Rect2(515, 13, 85, 20), Color(0.3, 0.6, 0.8), false, 1.0)
-	draw_string(font, Vector2(520, 27), d_str, HORIZONTAL_ALIGNMENT_CENTER, 75, 11, Color(1, 1, 1))
-
-	# ✕ CLOSE ボタン
-	var cb_w := 105.0
-	var cb_rect := Rect2(w - cb_w - 20.0, 10.0, cb_w, 24.0)
+	var cb_w := 85.0 if w < 600.0 else 105.0
+	var cb_rect := Rect2(w - cb_w - 10.0, 10.0, cb_w, 24.0)
 	draw_rect(cb_rect, Color(0.15, 0.05, 0.08, 0.9))
 	draw_rect(cb_rect, Color(1.0, 0.4, 0.4, 0.9), false, 1.2)
-	draw_string(font, Vector2(cb_rect.position.x, cb_rect.position.y + 16.0), "✕ CLOSE [ESC]", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 10, Color(1.0, 0.65, 0.65))
+	draw_string(font, Vector2(cb_rect.position.x, cb_rect.position.y + 16.0), "✕ CLOSE", HORIZONTAL_ALIGNMENT_CENTER, cb_w, 10, Color(1.0, 0.65, 0.65))
+
+	if w < 600.0:
+		# スマホ縦画面：コンパクトなリソース表示
+		var seg_w := (w - cb_w - 24.0) / 3.0
+		draw_string(font, Vector2(8, 27), "⚡" + str(cur_e), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(1.0, 0.85, 0.2))
+		draw_string(font, Vector2(8 + seg_w, 27), "⚙" + str(cur_nano), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(0.3, 0.9, 0.85))
+		draw_string(font, Vector2(8 + seg_w * 2, 27), "💾" + str(cur_data), HORIZONTAL_ALIGNMENT_LEFT, int(seg_w), 10, Color(0.7, 0.5, 1.0))
+	else:
+		# ⚡ ENERGY
+		draw_string(font, Vector2(25, 28), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.85, 0.2))
+		var e_str := str(cur_e) + "/" + str(max_e)
+		draw_rect(Rect2(105, 13, 105, 20), Color(0.12, 0.16, 0.22))
+		draw_rect(Rect2(105, 13, 105, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+		draw_string(font, Vector2(110, 27), e_str, HORIZONTAL_ALIGNMENT_CENTER, 95, 11, Color(1, 1, 1))
+
+		# ⚙ NANITES
+		draw_string(font, Vector2(235, 28), "⚙ NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.3, 0.9, 0.85))
+		var n_str := str(cur_nano) + "/390"
+		draw_rect(Rect2(325, 13, 95, 20), Color(0.12, 0.16, 0.22))
+		draw_rect(Rect2(325, 13, 95, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+		draw_string(font, Vector2(330, 27), n_str, HORIZONTAL_ALIGNMENT_CENTER, 85, 11, Color(1, 1, 1))
+
+		# 💾 DATA
+		draw_string(font, Vector2(445, 28), "💾 DATA", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.5, 1.0))
+		var d_str := str(cur_data)
+		draw_rect(Rect2(515, 13, 85, 20), Color(0.12, 0.16, 0.22))
+		draw_rect(Rect2(515, 13, 85, 20), Color(0.3, 0.6, 0.8), false, 1.0)
+		draw_string(font, Vector2(520, 27), d_str, HORIZONTAL_ALIGNMENT_CENTER, 75, 11, Color(1, 1, 1))
 
 func _draw_nano_printer_section(split_x: float, _h: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -693,3 +761,127 @@ func _draw_custom_ellipse_arc(center: Vector2, rx: float, ry: float, col: Color,
 		var p1 := center + Vector2(cos(a1) * rx, sin(a1) * ry)
 		var p2 := center + Vector2(cos(a2) * rx, sin(a2) * ry)
 		draw_line(p1, p2, col, width)
+
+func _draw_tech_tree_section_portrait(w: float, h: float) -> void:
+	var font := ThemeDB.fallback_font
+	var scale := clampf((w - 50.0) / 560.0, 0.52, 0.95)
+
+	# 接続線の描画
+	for node in tree_nodes:
+		for p_id in node["parents"]:
+			var p_node = null
+			for other in tree_nodes:
+				if other["id"] == p_id:
+					p_node = other
+					break
+			if p_node != null:
+				var is_both_unlocked: bool = node["unlocked"] and p_node["unlocked"]
+				var line_col := Color(0.95, 0.65, 0.2, 0.8) if node["color_type"] == "orange" else Color(0.2, 0.85, 1.0, 0.8)
+				if not is_both_unlocked:
+					line_col = Color(0.2, 0.25, 0.35, 0.4)
+				var p1 := _get_node_screen_pos(p_node, w, h)
+				var p2 := _get_node_screen_pos(node, w, h)
+				draw_line(p1, p2, line_col, 2.0 * scale)
+
+	# ノードの描画
+	for node in tree_nodes:
+		var pos := _get_node_screen_pos(node, w, h)
+		var is_unlocked: bool = node["unlocked"]
+		var is_orange: bool = (node["color_type"] == "orange")
+		var is_selected: bool = (node["id"] == selected_node_id)
+		
+		var base_col := Color(0.95, 0.65, 0.2) if is_orange else Color(0.2, 0.85, 1.0)
+		if not is_unlocked:
+			base_col = Color(0.25, 0.3, 0.38)
+			
+		# 外輪サークル
+		var r_outer := 17.0 * scale
+		var r_inner := 14.0 * scale
+		draw_circle(pos, r_outer, Color(0.08, 0.1, 0.14, 0.95))
+		draw_circle(pos, r_inner, Color(0.15, 0.2, 0.28))
+		draw_arc(pos, r_outer, 0.0, TAU, 32, base_col, 2.0)
+		
+		if is_selected:
+			draw_arc(pos, r_outer + 3.0, 0.0, TAU, 32, Color(1, 1, 1, 0.9), 1.5)
+
+		# アイコン
+		var f_icon := int(11 * scale)
+		draw_string(font, Vector2(pos.x - 6 * scale, pos.y + 5 * scale), node["icon"], HORIZONTAL_ALIGNMENT_LEFT, -1, max(8, f_icon), base_col)
+
+		# タイトルとレベル表示
+		if is_unlocked:
+			var txt_col := Color(0.9, 0.9, 0.9)
+			var lvl_str := "L" + str(node["lvl"])
+			draw_string(font, Vector2(pos.x - 30 * scale, pos.y + 24 * scale), lvl_str, HORIZONTAL_ALIGNMENT_CENTER, int(60 * scale), max(7, int(8 * scale)), base_col)
+
+	# 選択中ノードのサマリー詳細カード（下部）
+	for node in tree_nodes:
+		if node["id"] == selected_node_id:
+			var card_w := minf(w - 24.0, 380.0)
+			var card_h := 60.0
+			var card_x := (w - card_w) * 0.5
+			var card_y := h - 110.0
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), Color(0.05, 0.1, 0.16, 0.95))
+			var border_c := Color(0.95, 0.65, 0.2) if node["color_type"] == "orange" else Color(0.3, 0.85, 1.0)
+			draw_rect(Rect2(card_x, card_y, card_w, card_h), border_c, false, 1.5)
+			draw_string(font, Vector2(card_x + 12, card_y + 22), node["title"] + "  [LVL " + str(node["lvl"]) + "/" + str(node["max_lvl"]) + "]", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, border_c)
+			var status_s := "★ TAP TO UPGRADE TECH (+1 LEVEL) ★" if node["unlocked"] else "🔒 LOCKED: RESEARCH PREREQUISITES FIRST"
+			var status_c := Color(0.4, 0.95, 1.0) if node["unlocked"] else Color(0.8, 0.4, 0.4)
+			draw_string(font, Vector2(card_x + 12, card_y + 44), status_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, status_c)
+			break
+
+func _draw_nano_printer_section_portrait(w: float, h: float) -> void:
+	var font := ThemeDB.fallback_font
+	var cham_w := minf(w - 24.0, 360.0)
+	var cham_h := minf(h * 0.38, 250.0)
+	var cham_x := (w - cham_w) * 0.5
+	var cham_y := 90.0
+
+	# チャンバー背景
+	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.04, 0.08, 0.12, 0.9))
+	draw_rect(Rect2(cham_x, cham_y, cham_w, cham_h), Color(0.2, 0.55, 0.8), false, 1.5)
+
+	# グリッド
+	for g in range(1, 5):
+		var gx := cham_x + g * (cham_w / 5.0)
+		draw_line(Vector2(gx, cham_y), Vector2(gx, cham_y + cham_h), Color(0.15, 0.3, 0.45, 0.3), 1.0)
+		var gy := cham_y + g * (cham_h / 5.0)
+		draw_line(Vector2(cham_x, gy), Vector2(cham_x + cham_w, gy), Color(0.15, 0.3, 0.45, 0.3), 1.0)
+
+	# 台座と円形発光リング
+	var ped_center := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h - 35)
+	_draw_custom_ellipse(ped_center, 65.0, 18.0, Color(0.1, 0.3, 0.45, 0.8))
+	_draw_custom_ellipse_arc(ped_center, 65.0, 18.0, Color(0.3, 0.9, 1.0), 2.0)
+
+	# 中央で回転するフォン・ノイマン・プローブのホログラム
+	var probe_c := Vector2(cham_x + cham_w * 0.5, cham_y + cham_h * 0.42)
+	_draw_hologram_probe(probe_c, probe_rot)
+
+	# プログレスバー
+	var pb_x := cham_x + 20.0
+	var pb_y := cham_y + cham_h - 26.0
+	var pb_w := cham_w - 40.0
+	draw_rect(Rect2(pb_x, pb_y, pb_w, 20), Color(0.08, 0.15, 0.22))
+	draw_rect(Rect2(pb_x, pb_y, pb_w * printing_progress, 20), Color(0.2, 0.7, 0.9, 0.8))
+	draw_rect(Rect2(pb_x, pb_y, pb_w, 20), Color(0.3, 0.85, 1.0), false, 1.2)
+	draw_string(font, Vector2(pb_x, pb_y + 15), "PRINTING... " + str(int(printing_progress * 100)) + "%", HORIZONTAL_ALIGNMENT_CENTER, pb_w, 11, Color(1, 1, 1))
+
+	# 下段：THRUSTERS & MINING LASER 情報カード（横並び）
+	var sub_y := cham_y + cham_h + 12.0
+	var sub_w := (cham_w - 10.0) * 0.5
+	# スラスター
+	draw_rect(Rect2(cham_x, sub_y, sub_w, 90), Color(0.05, 0.1, 0.08, 0.8))
+	draw_rect(Rect2(cham_x, sub_y, sub_w, 90), Color(0.3, 0.9, 0.5), false, 1.2)
+	draw_string(font, Vector2(cham_x + 6, sub_y + 18), "THRUSTERS", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
+	_draw_mini_thruster(Vector2(cham_x + sub_w * 0.5, sub_y + 44))
+	draw_rect(Rect2(cham_x + 6, sub_y + 74, sub_w - 12, 6), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(cham_x + 6, sub_y + 74, (sub_w - 12) * printing_progress, 6), Color(0.3, 1.0, 0.5))
+
+	# レーザー
+	var l_x := cham_x + sub_w + 10.0
+	draw_rect(Rect2(l_x, sub_y, sub_w, 90), Color(0.05, 0.1, 0.08, 0.8))
+	draw_rect(Rect2(l_x, sub_y, sub_w, 90), Color(0.3, 0.9, 0.5), false, 1.2)
+	draw_string(font, Vector2(l_x + 6, sub_y + 18), "MINING LASER", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
+	_draw_mini_laser(Vector2(l_x + sub_w * 0.5, sub_y + 44))
+	draw_rect(Rect2(l_x + 6, sub_y + 74, sub_w - 12, 6), Color(0.1, 0.2, 0.15))
+	draw_rect(Rect2(l_x + 6, sub_y + 74, (sub_w - 12) * printing_progress, 6), Color(0.3, 1.0, 0.5))
