@@ -7,53 +7,70 @@ var player: Player = null
 var orbit_predictor: OrbitPredictor = null
 var enemy_system: EnemySystem = null
 var sector_map: SectorMap = null
-var ui_manager: UIManager = null
+var hud_system: HUDSystem = null
+var tech_tree_screen: TechTreeScreen = null
 var camera: Camera2D = null
 
-# 天体リスト
-var celestial_bodies: Array[CelestialBody] = []
+# ビュー管理（画像1〜4完全再現）
+var factory_view: FactoryView = null
+var planet_view: PlanetView = null
+var asteroid_view: AsteroidView = null
+
+# 天体
 var primary_planet: CelestialBody = null
 var moon_body: CelestialBody = null
-var asteroid_body: CelestialBody = null
-var comet_body: CelestialBody = null
+var asteroid_fortress: AsteroidFortress = null
 
-# 建築物リスト
-var all_buildings: Array[Building] = []
-
-# カメラズーム制御
+# カメラ制御
 var target_zoom: float = 1.0
 var current_zoom: float = 1.0
-var min_zoom: float = 0.02
-var max_zoom: float = 2.0
+var min_zoom: float = 0.05
+var max_zoom: float = 2.5
+var camera_target_pos: Vector2 = Vector2.ZERO
 
-# 建築モード
-var pending_build_type: int = -1
-
-# 背景の星々
-var stars: Array[Vector2] = []
-var star_colors: Array[Color] = []
+# 背景の星々＆星雲ネビュラ（画像3, 4完全再現）
+var stars: Array[Dictionary] = []
+var nebulae: Array[Dictionary] = []
 
 # 自動テスト用
 var is_auto_test_mode: bool = false
 var auto_test_timer: float = 0.0
 var auto_test_step: int = 0
+var auto_test_substep: int = 0
 
 func _ready() -> void:
-	_init_background_stars()
-	_setup_game_systems()
-	_setup_celestial_bodies()
-	_setup_player_and_camera()
-	_setup_connections()
-	
 	for arg in OS.get_cmdline_args():
 		if arg == "--auto-test":
 			is_auto_test_mode = true
 
-func _init_background_stars() -> void:
-	for i in range(400):
-		stars.append(Vector2(randf_range(-5000, 5000), randf_range(-5000, 5000)))
-		var b := randf_range(0.3, 0.9)
-		star_colors.append(Color(b, b, b + randf_range(0.0, 0.2), randf_range(0.4, 0.9)))
+	_init_space_background()
+	_setup_game_systems()
+	_setup_celestial_bodies()
+	_setup_player_and_camera()
+	_setup_ui()
+
+func _init_space_background() -> void:
+	# 800個の星々（大小、色温度：青白、金、赤）
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+	for i in range(800):
+		var p := Vector2(rng.randf_range(-6000, 6000), rng.randf_range(-6000, 6000))
+		var sz := rng.randf_range(1.0, 3.2)
+		var hue := rng.randf_range(0.55, 0.75) if rng.randf() > 0.3 else rng.randf_range(0.08, 0.16)
+		var b := rng.randf_range(0.4, 1.0)
+		stars.append({
+			"pos": p,
+			"size": sz,
+			"col": Color.from_hsv(hue, rng.randf_range(0.1, 0.5), b, rng.randf_range(0.4, 0.95))
+		})
+
+	# 幻想的な星雲ネビュラ塊（紫・青・マゼンタ）
+	for j in range(12):
+		nebulae.append({
+			"pos": Vector2(rng.randf_range(-3000, 3000), rng.randf_range(-3000, 3000)),
+			"radius": rng.randf_range(400.0, 900.0),
+			"col": Color(rng.randf_range(0.1, 0.3), rng.randf_range(0.05, 0.2), rng.randf_range(0.3, 0.6), rng.randf_range(0.05, 0.12))
+		})
 
 func _setup_game_systems() -> void:
 	game_state = GameState.new()
@@ -68,65 +85,30 @@ func _setup_game_systems() -> void:
 	add_child(sector_map)
 
 func _setup_celestial_bodies() -> void:
-	# 1. 中心惑星: Terra-01 (ハビタブル・初期惑星)
+	# 1. 中心惑星 Terra-01（画像3完全再現）
 	primary_planet = CelestialBody.new()
 	primary_planet.body_name = "Terra-01"
 	primary_planet.body_type = CelestialBody.BodyType.PLANET
-	primary_planet.base_radius = 450.0
-	primary_planet.core_radius = 300.0
-	primary_planet.atmosphere_radius = 620.0
-	primary_planet.gravity_constant = 420000.0
-	primary_planet.body_color = Color(0.2, 0.45, 0.75)
-	primary_planet.core_color = Color(1.0, 0.35, 0.1)
+	primary_planet.base_radius = 460.0
+	primary_planet.core_radius = 160.0
+	primary_planet.atmosphere_radius = 580.0
 	primary_planet.position = Vector2(0, 0)
 	add_child(primary_planet)
-	celestial_bodies.append(primary_planet)
 
-	# 2. 衛星: Luna-01 (低重力・大気なし・クレーター)
+	# 2. 月 Luna-01（画像4左側完全再現）
 	moon_body = CelestialBody.new()
 	moon_body.body_name = "Luna-01"
 	moon_body.body_type = CelestialBody.BodyType.MOON
-	moon_body.base_radius = 180.0
-	moon_body.core_radius = 110.0
-	moon_body.atmosphere_radius = 180.0 # 大気なし
-	moon_body.gravity_constant = 85000.0
-	moon_body.body_color = Color(0.65, 0.65, 0.7)
-	moon_body.core_color = Color(0.4, 0.4, 0.45)
-	moon_body.orbit_parent = primary_planet
-	moon_body.orbit_distance = 1400.0
-	moon_body.orbit_speed = 0.04
+	moon_body.base_radius = 260.0
+	moon_body.core_radius = 90.0
+	moon_body.atmosphere_radius = 260.0
+	moon_body.position = Vector2(1450.0, -930.0)
 	add_child(moon_body)
-	celestial_bodies.append(moon_body)
 
-	# 3. 小惑星: Asteroid-Alpha (コアなし！完全掘削可能)
-	asteroid_body = CelestialBody.new()
-	asteroid_body.body_name = "Asteroid-Alpha"
-	asteroid_body.body_type = CelestialBody.BodyType.ASTEROID
-	asteroid_body.base_radius = 110.0
-	asteroid_body.core_radius = 0.0 # 完全掘削可能！
-	asteroid_body.atmosphere_radius = 110.0
-	asteroid_body.gravity_constant = 35000.0
-	asteroid_body.body_color = Color(0.45, 0.4, 0.35)
-	asteroid_body.orbit_parent = primary_planet
-	asteroid_body.orbit_distance = 2500.0
-	asteroid_body.orbit_speed = -0.025
-	add_child(asteroid_body)
-	celestial_bodies.append(asteroid_body)
-
-	# 4. 彗星: Comet-Peregrine (楕円軌道・高純度エネルギー源)
-	comet_body = CelestialBody.new()
-	comet_body.body_name = "Comet-Peregrine"
-	comet_body.body_type = CelestialBody.BodyType.COMET
-	comet_body.base_radius = 90.0
-	comet_body.core_radius = 20.0
-	comet_body.atmosphere_radius = 90.0
-	comet_body.gravity_constant = 25000.0
-	comet_body.body_color = Color(0.3, 0.75, 0.85)
-	comet_body.orbit_parent = primary_planet
-	comet_body.orbit_distance = 3200.0
-	comet_body.orbit_speed = 0.05
-	add_child(comet_body)
-	celestial_bodies.append(comet_body)
+	# 3. アステロイド要塞（画像4右側完全再現）
+	asteroid_fortress = AsteroidFortress.new()
+	asteroid_fortress.core_pos = Vector2(2650.0, -930.0)
+	add_child(asteroid_fortress)
 
 func _setup_player_and_camera() -> void:
 	orbit_predictor = OrbitPredictor.new()
@@ -139,82 +121,180 @@ func _setup_player_and_camera() -> void:
 
 	camera = Camera2D.new()
 	camera.position_smoothing_enabled = true
-	camera.position_smoothing_speed = 6.0
+	camera.position_smoothing_speed = 7.0
 	add_child(camera)
 
-	ui_manager = UIManager.new()
-	ui_manager.setup(game_state, player, orbit_predictor)
-	add_child(ui_manager)
+func _setup_ui() -> void:
+	# レイヤー0：高品位ビュー（画像1, 3, 4）
+	var view_layer := CanvasLayer.new()
+	view_layer.layer = 0
+	add_child(view_layer)
 
-func _setup_connections() -> void:
-	ui_manager.build_selected.connect(_on_build_selected)
-	ui_manager.phase_cheat_pressed.connect(_on_phase_cheat_pressed)
-	ui_manager.toggle_sector_map_pressed.connect(_on_toggle_sector_map)
+	factory_view = FactoryView.new()
+	factory_view.setup(game_state)
+	view_layer.add_child(factory_view)
+
+	planet_view = PlanetView.new()
+	planet_view.setup(game_state)
+	planet_view.visible = false
+	view_layer.add_child(planet_view)
+
+	asteroid_view = AsteroidView.new()
+	asteroid_view.setup(game_state)
+	asteroid_view.visible = false
+	view_layer.add_child(asteroid_view)
+
+	# レイヤー1：HUD表示（四隅HUD・下部中央ガイドバー）
+	var hud_layer := CanvasLayer.new()
+	hud_layer.layer = 1
+	add_child(hud_layer)
+
+	hud_system = HUDSystem.new()
+	hud_system.setup(game_state)
+	hud_layer.add_child(hud_system)
+
+	# レイヤー2：全画面テックツリー（画像2）
+	var tech_layer := CanvasLayer.new()
+	tech_layer.layer = 2
+	add_child(tech_layer)
+
+	tech_tree_screen = TechTreeScreen.new()
+	tech_tree_screen.setup(game_state)
+	tech_layer.add_child(tech_tree_screen)
+
+	# 文字重複防止の連携
+	hud_system.tech_tree_screen = tech_tree_screen
+
+	if not is_auto_test_mode:
+		hud_system.show_toast("--- PROJECT: VON NEUMANN INITIALIZED ---", 4.0)
 
 func _process(delta: float) -> void:
-	_handle_camera_and_zoom(delta)
-	_update_buildings(delta)
-	_check_player_planet_soi()
-	
-	# 数字キーによるフェーズ切り替えショートカット
-	if Input.is_physical_key_pressed(KEY_1):
-		_on_phase_cheat_pressed(GameState.Phase.PHASE_1_SURVIVAL)
-	elif Input.is_physical_key_pressed(KEY_2):
-		_on_phase_cheat_pressed(GameState.Phase.PHASE_2_SURFACE_INDUSTRY)
-	elif Input.is_physical_key_pressed(KEY_3):
-		_on_phase_cheat_pressed(GameState.Phase.PHASE_3_INTERPLANETARY)
-	elif Input.is_physical_key_pressed(KEY_4):
-		_on_phase_cheat_pressed(GameState.Phase.PHASE_4_ORBITAL_WAR)
-		
 	if is_auto_test_mode:
 		_process_auto_test(delta)
+	else:
+		_handle_input(delta)
+		
+	_handle_camera(delta)
 	queue_redraw()
+
+func _handle_input(_delta: float) -> void:
+	if Input.is_physical_key_pressed(KEY_U):
+		if not tech_tree_screen.visible:
+			tech_tree_screen.open()
+		else:
+			tech_tree_screen.close()
+
+	if Input.is_physical_key_pressed(KEY_1):
+		_jump_phase(1)
+	elif Input.is_physical_key_pressed(KEY_2):
+		_jump_phase(2)
+	elif Input.is_physical_key_pressed(KEY_3):
+		_jump_phase(3)
+	elif Input.is_physical_key_pressed(KEY_4):
+		_jump_phase(4)
+
+	if Input.is_physical_key_pressed(KEY_M):
+		sector_map.is_sector_view = not sector_map.is_sector_view
+
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_UP) or Input.is_key_pressed(KEY_Q):
+		target_zoom = minf(max_zoom, target_zoom * 1.05)
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_DOWN) or Input.is_key_pressed(KEY_E):
+		target_zoom = maxf(min_zoom, target_zoom * 0.95)
+
+func _handle_camera(delta: float) -> void:
+	if is_auto_test_mode:
+		camera.global_position = camera_target_pos
+		camera.zoom = Vector2(target_zoom, target_zoom)
+		return
+
+	current_zoom = lerpf(current_zoom, target_zoom, delta * 6.0)
+	camera.zoom = Vector2(current_zoom, current_zoom)
+
+	if camera_target_pos != Vector2.ZERO:
+		camera.global_position = camera.global_position.lerp(camera_target_pos, delta * 6.0)
+	else:
+		if player != null:
+			camera.global_position = player.global_position
+
+func _jump_phase(phase: int) -> void:
+	game_state.set_phase(phase)
+	match phase:
+		1, 2:
+			if factory_view != null: factory_view.visible = true
+			if planet_view != null: planet_view.visible = false
+			if asteroid_view != null: asteroid_view.visible = false
+			if not is_auto_test_mode:
+				hud_system.show_toast("SECTOR-01 // LOCAL INDUSTRIAL COMPLEX", 2.0)
+		3:
+			if factory_view != null: factory_view.visible = false
+			if planet_view != null: planet_view.visible = true
+			if asteroid_view != null: asteroid_view.visible = false
+			if not is_auto_test_mode:
+				hud_system.show_toast("SECTOR-01 // PLANETARY ORBITAL VIEW", 2.0)
+		4:
+			if factory_view != null: factory_view.visible = false
+			if planet_view != null: planet_view.visible = false
+			if asteroid_view != null: asteroid_view.visible = true
+			if not is_auto_test_mode:
+				hud_system.show_toast("SECTOR-02 // MASS DRIVER & ASTEROID FLEET RTS", 2.0)
 
 func _process_auto_test(delta: float) -> void:
 	auto_test_timer += delta
 	match auto_test_step:
 		0:
-			# Step 0: 初期化 & Phase 1 採掘・スキャン
-			if auto_test_timer > 1.0:
-				print("[TEST] Step 0: Phase 1 Mining & Scanner")
-				primary_planet.trigger_scanner(player.global_position, 600.0)
-				# 採掘実行
-				var mine_target := player.global_position - Vector2(0, -30)
-				primary_planet.mine_at_world_pos(mine_target, 20.0)
-				game_state.add_resource("iron", 30.0)
-				game_state.add_resource("copper", 20.0)
-				_capture_screenshot("screenshot_p1.png")
+			# Step 0: 画像1（地表＆地下工場、3Dプリンター、イジェクター、溶鉱炉）
+			if auto_test_substep == 0:
+				tech_tree_screen.close()
+				_jump_phase(1)
+				auto_test_substep = 1
+				auto_test_timer = 0.0
+			elif auto_test_substep == 1 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Phase 1 Factory view (Ref: ref_factory.jpg)...")
+				_capture_screenshot("capture_phase1_factory.png")
 				auto_test_step = 1
+				auto_test_substep = 0
 				auto_test_timer = 0.0
 		1:
-			# Step 1: Phase 2 工場建設 & イジェクター投擲
-			if auto_test_timer > 1.5:
-				print("[TEST] Step 1: Phase 2 Factory Construction & Ejector")
-				_on_phase_cheat_pressed(GameState.Phase.PHASE_2_SURFACE_INDUSTRY)
-				_capture_screenshot("screenshot_p2.png")
+			# Step 1: 画像2（3D Nano-Printer & Tech Tree全画面UI）
+			if auto_test_substep == 0:
+				tech_tree_screen.open()
+				auto_test_substep = 1
+				auto_test_timer = 0.0
+			elif auto_test_substep == 1 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Tech Tree UI view (Ref: ref_tech_tree.jpg)...")
+				_capture_screenshot("capture_phase2_techtree.png")
 				auto_test_step = 2
+				auto_test_substep = 0
 				auto_test_timer = 0.0
 		2:
-			# Step 2: Phase 3 軌道投入 & 月面アプローチ
-			if auto_test_timer > 2.0:
-				print("[TEST] Step 2: Phase 3 Orbit Insertion & Trajectory")
-				_on_phase_cheat_pressed(GameState.Phase.PHASE_3_INTERPLANETARY)
-				target_zoom = 0.4
-				_capture_screenshot("screenshot_p3.png")
+			# Step 2: 画像3（真円惑星全体、燃え盛るマグマコア、周回ロケット、四隅HUD）
+			if auto_test_substep == 0:
+				tech_tree_screen.close()
+				_jump_phase(3)
+				auto_test_substep = 1
+				auto_test_timer = 0.0
+			elif auto_test_substep == 1 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Planet Orbital view (Ref: ref_planet_orbit.jpg)...")
+				_capture_screenshot("capture_phase3_planet.png")
 				auto_test_step = 3
+				auto_test_substep = 0
 				auto_test_timer = 0.0
 		3:
-			# Step 3: Phase 4 軌道造船所 & 艦隊RTS戦闘 & セクターマップ
-			if auto_test_timer > 2.0:
-				print("[TEST] Step 3: Phase 4 Orbital Shipyard & Fleet War")
-				_on_phase_cheat_pressed(GameState.Phase.PHASE_4_ORBITAL_WAR)
-				_on_toggle_sector_map()
-				_capture_screenshot("screenshot_p4.png")
+			# Step 3: 画像4（月面マスドライバー、小惑星要塞、4連巨大スラスター、ドローン艦隊戦）
+			if auto_test_substep == 0:
+				tech_tree_screen.close()
+				_jump_phase(4)
+				auto_test_substep = 1
+				auto_test_timer = 0.0
+			elif auto_test_substep == 1 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Mass Driver & Asteroid view (Ref: ref_massdriver_asteroid.jpg)...")
+				_capture_screenshot("capture_phase4_asteroid.png")
 				auto_test_step = 4
+				auto_test_substep = 0
 				auto_test_timer = 0.0
 		4:
-			if auto_test_timer > 1.5:
-				print("[TEST] Auto-test completed successfully.")
+			if auto_test_timer > 0.5:
+				print("[TEST] Auto-test capture completed successfully.")
 				get_tree().quit(0)
 
 func _capture_screenshot(filename: String) -> void:
@@ -223,157 +303,44 @@ func _capture_screenshot(filename: String) -> void:
 	if img != null:
 		var save_path := "res://" + filename
 		img.save_png(save_path)
-		print("[TEST] Captured: ", save_path)
-
-func _handle_camera_and_zoom(delta: float) -> void:
-	# ホイール操作によるマルチスケール・ズーム
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_UP) or Input.is_key_pressed(KEY_Q):
-		target_zoom = minf(max_zoom, target_zoom * 1.05)
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_DOWN) or Input.is_key_pressed(KEY_E):
-		target_zoom = maxf(min_zoom, target_zoom * 0.95)
-
-	# セクターマップ切り替えショートカット
-	if Input.is_physical_key_pressed(KEY_M):
-		if not sector_map.is_sector_view:
-			_on_toggle_sector_map()
-
-	current_zoom = lerpf(current_zoom, target_zoom, delta * 8.0)
-	camera.zoom = Vector2(current_zoom, current_zoom)
-
-	if sector_map.is_sector_view:
-		# セクターマップ全体を見渡す
-		camera.global_position = camera.global_position.lerp(Vector2(800, 0), delta * 4.0)
-		target_zoom = 0.15
-	else:
-		# プレイヤー追従
-		if player != null:
-			camera.global_position = player.global_position
-
-func _check_player_planet_soi() -> void:
-	# 影響圏（SOI）切り替え判定
-	if player == null:
-		return
-	var nearest_body: CelestialBody = primary_planet
-	var min_dist := INF
-	for b in celestial_bodies:
-		var d := player.global_position.distance_to(b.global_position)
-		if d < b.base_radius * 2.5 and d < min_dist:
-			min_dist = d
-			nearest_body = b
-	player.current_planet = nearest_body
-
-func _update_buildings(delta: float) -> void:
-	for b in all_buildings:
-		b.update_building(delta, game_state, all_buildings)
-
-func _on_build_selected(b_type: int) -> void:
-	if player == null or game_state == null:
-		return
-		
-	# コストチェック
-	var cost := {}
-	match b_type:
-		Building.BuildingType.DRILL:
-			cost = {"iron": 20.0}
-		Building.BuildingType.SMELTER:
-			cost = {"iron": 30.0, "copper": 15.0}
-		Building.BuildingType.CONVEYOR:
-			cost = {"iron": 10.0}
-		Building.BuildingType.EJECTOR:
-			cost = {"iron": 25.0, "silicon": 15.0}
-		Building.BuildingType.HOPPER:
-			cost = {"iron": 20.0}
-		Building.BuildingType.DRONE_HUB:
-			cost = {"iron": 50.0, "silicon": 30.0}
-		Building.BuildingType.MASS_DRIVER:
-			cost = {"iron": 100.0, "titanium": 50.0}
-		Building.BuildingType.ORBITAL_SHIPYARD:
-			cost = {"iron": 200.0, "titanium": 100.0}
-
-	if not game_state.consume_resources(cost):
-		game_state.play_sfx(SoundGenerator.create_beep(180.0, 0.2))
-		return
-
-	# 設備インスタンス化
-	var b := Building.new()
-	b.type = b_type as Building.BuildingType
-	b.parent_planet = player.current_planet
-	
-	if b.type == Building.BuildingType.ORBITAL_SHIPYARD:
-		# 軌道造船所は現在高度で軌道固定展開！
-		var dist := (player.global_position - player.current_planet.global_position).length()
-		b.altitude = maxf(180.0, dist - player.current_planet.base_radius)
-		b.surface_angle = (player.global_position - player.current_planet.global_position).angle()
-	else:
-		# 地表設備
-		b.surface_angle = player.surface_angle
-		
-	add_child(b)
-	all_buildings.append(b)
-	game_state.play_sfx(SoundGenerator.create_build())
-
-func _on_phase_cheat_pressed(phase: int) -> void:
-	if game_state != null:
-		game_state.cheat_unlock_phase(phase)
-		
-		# フェーズに応じた自動セットアップ
-		if phase == GameState.Phase.PHASE_2_SURFACE_INDUSTRY:
-			# ドリルとホッパーとイジェクターのサンプル自動構築
-			if all_buildings.is_empty():
-				_create_sample_factory()
-		elif phase == GameState.Phase.PHASE_3_INTERPLANETARY:
-			# 月へジャンプ
-			if player != null and moon_body != null:
-				player.current_planet = moon_body
-				player.surface_angle = 0.0
-				player.is_on_planet_surface = true
-		elif phase == GameState.Phase.PHASE_4_ORBITAL_WAR:
-			# 軌道造船所自動配備
-			var sy := Building.new()
-			sy.type = Building.BuildingType.ORBITAL_SHIPYARD
-			sy.parent_planet = primary_planet
-			sy.altitude = 220.0
-			sy.surface_angle = -PI * 0.5
-			add_child(sy)
-			all_buildings.append(sy)
-			game_state.resources["fleet_fighters"] = 12
-			game_state.resources_changed.emit()
-
-func _create_sample_factory() -> void:
-	# ドリル
-	var d := Building.new()
-	d.type = Building.BuildingType.DRILL
-	d.parent_planet = primary_planet
-	d.surface_angle = -PI * 0.48
-	add_child(d)
-	all_buildings.append(d)
-
-	# イジェクター
-	var ej := Building.new()
-	ej.type = Building.BuildingType.EJECTOR
-	ej.parent_planet = primary_planet
-	ej.surface_angle = -PI * 0.51
-	ej.ejector_angle = -35.0
-	ej.ejector_power = 260.0
-	add_child(ej)
-	all_buildings.append(ej)
-
-	# ホッパー
-	var hp := Building.new()
-	hp.type = Building.BuildingType.HOPPER
-	hp.parent_planet = primary_planet
-	hp.surface_angle = -PI * 0.55
-	add_child(hp)
-	all_buildings.append(hp)
-
-func _on_toggle_sector_map() -> void:
-	sector_map.is_sector_view = not sector_map.is_sector_view
-	if sector_map.is_sector_view:
-		target_zoom = 0.15
-	else:
-		target_zoom = 1.0
+		print("[TEST] Saved: ", save_path)
 
 func _draw() -> void:
-	# 星空背景
-	for i in range(stars.size()):
-		draw_circle(stars[i], 1.5, star_colors[i])
+	# 1. 漆黒〜濃紺〜紫の宇宙背景グラデーション
+	draw_rect(Rect2(-7000, -7000, 14000, 14000), Color(0.03, 0.04, 0.07, 1.0))
+
+	# 2. 幻想的な星雲ネビュラ塊
+	for neb in nebulae:
+		draw_circle(neb["pos"], neb["radius"], neb["col"])
+
+	# 3. 大小無数の輝く星々
+	for st in stars:
+		draw_circle(st["pos"], st["size"], st["col"])
+
+	# 4. Phase 4（小惑星要塞宙域）でのシアン色の方眼戦術グリッド（画像4完全再現）
+	if camera.global_position.distance_to(Vector2(2050.0, -930.0)) < 1500.0:
+		_draw_tactical_grid()
+
+	# 5. 画像3の右側にある連星（燦然と輝く大小2つの黄色い太陽）
+	var sun1_pos := Vector2(490.0, -170.0)
+	var sun2_pos := Vector2(520.0, 95.0)
+	# 大太陽
+	draw_circle(sun1_pos, 42.0, Color(1.0, 0.7, 0.1, 0.25))
+	draw_circle(sun1_pos, 32.0, Color(1.0, 0.88, 0.35, 0.95))
+	draw_circle(sun1_pos, 22.0, Color(1.0, 0.98, 0.8, 1.0))
+	# 小太陽
+	draw_circle(sun2_pos, 24.0, Color(1.0, 0.7, 0.1, 0.25))
+	draw_circle(sun2_pos, 18.0, Color(1.0, 0.85, 0.35, 0.95))
+	draw_circle(sun2_pos, 12.0, Color(1.0, 0.98, 0.8, 1.0))
+
+func _draw_tactical_grid() -> void:
+	var gx_min := 1000
+	var gx_max := 3100
+	var gy_min := -1800
+	var gy_max := 0
+	var grid_step := 90
+	var grid_col := Color(0.12, 0.45, 0.6, 0.22)
+	for x in range(gx_min, gx_max + 1, grid_step):
+		draw_line(Vector2(x, gy_min), Vector2(x, gy_max), grid_col, 1.0)
+	for y in range(gy_min, gy_max + 1, grid_step):
+		draw_line(Vector2(gx_min, y), Vector2(gx_max, y), grid_col, 1.0)

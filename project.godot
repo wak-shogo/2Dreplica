@@ -20,6 +20,7 @@ window/stretch/aspect="expand"
 
 [rendering]
 
+environment/defaults/default_clear_color=Color(0.04, 0.05, 0.08, 1)
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
