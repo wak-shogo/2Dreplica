@@ -1,0 +1,8 @@
+# Godot 4 .gitignore
+.godot/
+*.translation
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
