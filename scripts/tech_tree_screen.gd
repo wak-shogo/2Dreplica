@@ -18,8 +18,22 @@ var hovered_node: Dictionary = {}
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
-	backdrop_tex = load("res://assets/textures/tex_tech_tree_backdrop.png")
+	backdrop_tex = _load_texture_safe("res://assets/textures/tex_tech_tree_clean.png")
+	if backdrop_tex == null:
+		backdrop_tex = _load_texture_safe("res://assets/textures/tex_tech_tree_backdrop.png")
 	_init_tree_nodes()
+
+func _load_texture_safe(res_path: String) -> Texture2D:
+	if ResourceLoader.exists(res_path):
+		var res = load(res_path)
+		if res is Texture2D:
+			return res
+	var global_path := ProjectSettings.globalize_path(res_path)
+	if FileAccess.file_exists(global_path):
+		var img := Image.load_from_file(global_path)
+		if img != null and not img.is_empty():
+			return ImageTexture.create_from_image(img)
+	return null
 
 func _ready() -> void:
 	visible = false
@@ -53,6 +67,8 @@ func open() -> void:
 
 func close() -> void:
 	visible = false
+	if game_state != null:
+		game_state.play_sfx(SoundGenerator.create_beep(440.0, 0.06, 0.2))
 	closed.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -62,8 +78,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_U:
 			close()
 			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	elif (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and event.pressed):
 		var mpos: Vector2 = event.position
+
+		# 0. 右上閉じるボタンまたは下部バーのタップで閉じる
+		var vp_size := get_viewport().get_visible_rect().size
+		if Rect2(vp_size.x - 120, 5, 115, 36).has_point(mpos) or Rect2((vp_size.x - 560) * 0.5, vp_size.y - 40, 560, 40).has_point(mpos):
+			close()
+			get_viewport().set_input_as_handled()
+			return
+
 		# 1. 選択中ノードのフローティングHUDバッジクリック判定（ダイレクト・アップグレード対応）
 		for node in tree_nodes:
 			if node["id"] == selected_node_id:
@@ -211,6 +235,12 @@ func _draw() -> void:
 	else:
 		draw_rect(Rect2(0, 0, w, h), Color(0.04, 0.05, 0.08, 0.96))
 
+	# 1.2. 左上リソースヘッダーの実データ同期オーバーレイ
+	_draw_live_resource_header()
+
+	# 1.4. 下部モバイル操作ガイド＆タッチ閉じるボタン
+	_draw_mobile_footer_guide(w, h)
+
 	# 2. オシロスコープ動的波形（EM110モニター枠内に完全格納）
 	_draw_live_oscilloscope()
 
@@ -222,6 +252,71 @@ func _draw() -> void:
 
 	# 5. 選択ノード直横のスマート浮遊HUDバッジ（左画面計器や下段ノードとの衝突ゼロ）
 	_draw_node_hud_badge()
+
+func _draw_live_resource_header() -> void:
+	var font := ThemeDB.fallback_font
+	var cur_e := 100
+	var max_e := 100
+	var cur_nano := 15
+	var cur_ore := 0
+
+	if game_state != null:
+		cur_e = int(game_state.resources.get("energy", 100.0))
+		max_e = int(game_state.resources.get("max_energy", 100.0))
+		cur_nano = int(game_state.resources.get("nanites", game_state.resources.get("nano", 15.0)))
+		cur_ore = int(game_state.resources.get("ore", game_state.resources.get("iron", 0.0)))
+
+	# 背景の元文字（ENERGY, NANITES, DATA）を物理的に100%完全隠蔽する不透明サイバーヘッダーパネル
+	var hx := 14.0
+	var hy := 8.0
+	var hw := 476.0
+	var hh := 26.0
+
+	# 完全に不透明なカーボンダーク下地で背景の焼き込み文字を根絶
+	draw_rect(Rect2(hx, hy, hw, hh), Color(0.04, 0.07, 0.12, 1.0))
+	draw_rect(Rect2(hx, hy, hw, hh), Color(0.25, 0.6, 0.85, 0.95), false, 1.5)
+
+	# 1. ⚡ ENERGY
+	var e_box := Rect2(hx + 4.0, hy + 3.0, 150.0, 20.0)
+	draw_rect(e_box, Color(0.06, 0.1, 0.16, 0.9))
+	draw_rect(e_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
+	draw_string(font, Vector2(e_box.position.x + 8.0, e_box.position.y + 14.0), "⚡ ENERGY", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 0.95, 1.0))
+	draw_string(font, Vector2(e_box.position.x + 80.0, e_box.position.y + 14.0), str(cur_e) + "/" + str(max_e), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.9, 0.3))
+
+	# 2. 🏺 NANITES
+	var n_box := Rect2(hx + 160.0, hy + 3.0, 150.0, 20.0)
+	draw_rect(n_box, Color(0.06, 0.1, 0.16, 0.9))
+	draw_rect(n_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
+	draw_string(font, Vector2(n_box.position.x + 8.0, n_box.position.y + 14.0), "🏺 NANITES", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.4, 1.0, 0.6))
+	draw_string(font, Vector2(n_box.position.x + 85.0, n_box.position.y + 14.0), str(cur_nano) + "/390", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.9, 1.0, 0.9))
+
+	# 3. 🪙 ORE
+	var o_box := Rect2(hx + 316.0, hy + 3.0, 154.0, 20.0)
+	draw_rect(o_box, Color(0.06, 0.1, 0.16, 0.9))
+	draw_rect(o_box, Color(0.3, 0.65, 0.85, 0.7), false, 1.0)
+	draw_string(font, Vector2(o_box.position.x + 8.0, o_box.position.y + 14.0), "🪙 ORE", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.85, 0.3))
+	draw_string(font, Vector2(o_box.position.x + 75.0, o_box.position.y + 14.0), str(cur_ore), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 1.0, 1.0))
+
+func _draw_mobile_footer_guide(w: float, h: float) -> void:
+	var font := ThemeDB.fallback_font
+
+	# 最下部 Xboxコントローラーボタン表記を物理的に100%完全隠蔽する不透明フッターパネル
+	var fw := 720.0
+	var fh := 32.0
+	var fx := (w - fw) * 0.5
+	var fy := h - 40.0
+
+	draw_rect(Rect2(fx, fy, fw, fh), Color(0.04, 0.07, 0.12, 1.0))
+	draw_rect(Rect2(fx, fy, fw, fh), Color(0.25, 0.65, 0.9, 0.95), false, 1.5)
+
+	var guide_txt := "👆 TAP / [LMB] SELECT   |   ⚡ TAP / [SPACE] UPGRADE   |   ✕ TAP / [ESC] CLOSE"
+	draw_string(font, Vector2(fx, fy + 21.0), guide_txt, HORIZONTAL_ALIGNMENT_CENTER, fw, 11, Color(0.4, 0.95, 1.0))
+
+	# 右上閉じるボタン [✕ CLOSE / EXIT]
+	var close_rect := Rect2(w - 120.0, 8.0, 105.0, 26.0)
+	draw_rect(close_rect, Color(0.12, 0.04, 0.06, 1.0))
+	draw_rect(close_rect, Color(1.0, 0.4, 0.4, 0.95), false, 1.2)
+	draw_string(font, Vector2(close_rect.position.x, close_rect.position.y + 17.0), "✕ CLOSE [ESC]", HORIZONTAL_ALIGNMENT_CENTER, close_rect.size.x, 10, Color(1.0, 0.6, 0.6))
 
 func _draw_live_oscilloscope() -> void:
 	# 左下 EM110 モニター画面 (x: 36 to 110, y: 628 to 678)

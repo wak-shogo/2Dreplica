@@ -30,10 +30,25 @@ var probe_pos: Vector2 = Vector2(640.0, 110.0)
 var probe_angle: float = -PI * 0.5
 var probe_dist: float = 270.0
 var probe_vel: float = 0.0
+var touch_joystick_vector := Vector2.ZERO
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
-	backdrop_tex = load("res://assets/textures/tex_planet_orbit_backdrop.png")
+	backdrop_tex = _load_texture_safe("res://assets/textures/tex_planet_orbit_clean.png")
+	if backdrop_tex == null:
+		backdrop_tex = _load_texture_safe("res://assets/textures/tex_planet_orbit_backdrop.png")
+
+func _load_texture_safe(res_path: String) -> Texture2D:
+	if ResourceLoader.exists(res_path):
+		var res = load(res_path)
+		if res is Texture2D:
+			return res
+	var global_path := ProjectSettings.globalize_path(res_path)
+	if FileAccess.file_exists(global_path):
+		var img := Image.load_from_file(global_path)
+		if img != null and not img.is_empty():
+			return ImageTexture.create_from_image(img)
+	return null
 
 func _process(delta: float) -> void:
 	if not visible:
@@ -137,6 +152,10 @@ func _process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
 		move_dir += 1.0
 
+	if touch_joystick_vector.length() > 0.1:
+		move_dir = touch_joystick_vector.x
+		probe_dist = clampf(probe_dist - touch_joystick_vector.y * delta * 120.0, 180.0, 340.0)
+
 	probe_vel = lerpf(probe_vel, move_dir * 1.5, delta * 6.0)
 	probe_angle += probe_vel * delta
 
@@ -172,6 +191,9 @@ func _draw() -> void:
 
 	# 5. 軌道航法テレメトリHUD計器（高度・速度・軌道パラメータ）
 	_draw_orbital_telemetry()
+
+	# 5.5. 惑星コア＆地殻レーダースキャン走査線
+	_draw_planetary_scan()
 
 	# 6. プレイヤー自己複製機プローブ
 	_draw_probe(probe_pos)
@@ -284,3 +306,15 @@ func _draw_probe(pos: Vector2) -> void:
 	draw_circle(pos, 6.0, Color(0.15, 0.2, 0.28))
 	draw_circle(pos, 5.0, Color(0.3, 0.85, 1.0, 0.6), false, 1.2)
 	draw_circle(pos, 2.5, Color(0.4, 1.0, 0.6))
+
+func _draw_planetary_scan() -> void:
+	# 円形惑星の走査線レーダーリング
+	var t := Time.get_ticks_msec() * 0.0015
+	var scan_radius := 85.0 + fmod(t * 70.0, 180.0)
+	var scan_alpha := clampf(1.0 - (scan_radius - 85.0) / 180.0, 0.0, 1.0) * 0.35
+	draw_arc(planet_center, scan_radius, 0.0, TAU, 64, Color(0.3, 0.9, 1.0, scan_alpha), 1.5)
+	
+	# スイープ走査線
+	var sweep_angle := fmod(t * 1.8, TAU)
+	var sweep_end := planet_center + Vector2(cos(sweep_angle), sin(sweep_angle)) * 265.0
+	draw_line(planet_center, sweep_end, Color(0.4, 0.95, 1.0, 0.22), 1.2)

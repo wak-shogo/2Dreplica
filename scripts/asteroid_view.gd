@@ -17,6 +17,10 @@ var combat_drones: Array[Dictionary] = []
 var combat_lasers: Array[Dictionary] = []
 var combat_explosions: Array[Dictionary] = []
 var scrap_debris: Array[Dictionary] = []
+var damage_numbers: Array[Dictionary] = []
+var kinetic_slugs: Array[Dictionary] = []
+var boss_shield_hp: float = 84.0
+var boss_hit_flash: float = 0.0
 var battle_timer: float = 0.0
 
 # マスドライバーエネルギーパルス
@@ -24,8 +28,22 @@ var pulse_offsets: Array[float] = [0.1, 0.35, 0.6, 0.85]
 
 func setup(p_game_state: GameState) -> void:
 	game_state = p_game_state
-	backdrop_tex = load("res://assets/textures/tex_massdriver_asteroid_backdrop.png")
+	backdrop_tex = _load_texture_safe("res://assets/textures/tex_massdriver_asteroid_clean.png")
+	if backdrop_tex == null:
+		backdrop_tex = _load_texture_safe("res://assets/textures/tex_massdriver_asteroid_backdrop.png")
 	_init_combat_drones()
+
+func _load_texture_safe(res_path: String) -> Texture2D:
+	if ResourceLoader.exists(res_path):
+		var res = load(res_path)
+		if res is Texture2D:
+			return res
+	var global_path := ProjectSettings.globalize_path(res_path)
+	if FileAccess.file_exists(global_path):
+		var img := Image.load_from_file(global_path)
+		if img != null and not img.is_empty():
+			return ImageTexture.create_from_image(img)
+	return null
 
 func _init_combat_drones() -> void:
 	combat_drones.clear()
@@ -128,6 +146,32 @@ func _process(delta: float) -> void:
 			keep_exp.append(exp)
 	combat_explosions = keep_exp
 
+	# ダメージ数値フロート更新
+	var keep_dn: Array[Dictionary] = []
+	for dn in damage_numbers:
+		dn["life"] -= delta
+		if dn["life"] > 0.0:
+			dn["pos"].y -= delta * 30.0
+			keep_dn.append(dn)
+	damage_numbers = keep_dn
+
+	# 超高速マスドライバー弾頭更新
+	var keep_ks: Array[Dictionary] = []
+	for ks in kinetic_slugs:
+		ks["pos"] += ks["vel"] * delta
+		ks["life"] -= delta
+		if ks["life"] > 0.0:
+			keep_ks.append(ks)
+		else:
+			_spawn_explosion(ks["pos"])
+			boss_hit_flash = 0.3
+			boss_shield_hp = maxf(boss_shield_hp - 0.4, 25.0)
+			_spawn_damage_number("-580 CRITICAL", ks["pos"] + Vector2(0, -15), Color(1.0, 0.4, 0.4))
+	kinetic_slugs = keep_ks
+
+	if boss_hit_flash > 0.0:
+		boss_hit_flash -= delta
+
 	# 金属スクラップ・デブリ更新
 	var keep_deb: Array[Dictionary] = []
 	for deb in scrap_debris:
@@ -141,6 +185,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _spawn_explosion(pos: Vector2) -> void:
+	if game_state != null and randf() > 0.5:
+		game_state.play_sfx(SoundGenerator.create_explosion(0.25, 0.25))
 	combat_explosions.append({
 		"pos": pos,
 		"radius": 4.0,
@@ -158,6 +204,14 @@ func _spawn_explosion(pos: Vector2) -> void:
 			"size": randf_range(1.5, 3.5),
 			"life": 1.4, "max_life": 1.4
 		})
+	if randf() > 0.3:
+		var dmg_val := randi_range(120, 360)
+		_spawn_damage_number("-" + str(dmg_val), pos + Vector2(randf_range(-10, 10), -12), Color(1.0, 0.85, 0.3) if dmg_val < 250 else Color(1.0, 0.4, 0.3))
+
+func _spawn_damage_number(text: String, pos: Vector2, col: Color) -> void:
+	damage_numbers.append({
+		"text": text, "pos": pos, "col": col, "life": 0.75, "max_life": 0.75
+	})
 
 func _draw() -> void:
 	if not visible:
@@ -180,6 +234,12 @@ func _draw() -> void:
 
 	# 5. ドローン艦隊戦（レーザー軌跡＆爆発）
 	_draw_fleet_battle()
+
+	# 5.5. 超高速マスドライバー弾頭＆ダメージフロート数値
+	_draw_combat_effects()
+
+	# 6. 敵性自己複製母艦・侵攻ウェーブボスHUD（Phase 4 RTS最終決戦演出）
+	_draw_boss_hud()
 
 func _draw_thruster_vfx() -> void:
 	var pulse := 0.88 + sin(flame_timer) * 0.12
@@ -391,3 +451,56 @@ func _draw_fleet_battle() -> void:
 		draw_circle(dp, 1.8, Color(1.0, 1.0, 1.0, 0.95))
 		# 進行方向シェブロン・インジケータ
 		draw_line(dp + fwd * 4.0, dp + fwd * 6.5, Color(c.r, c.g, c.b, 0.8), 1.2)
+
+func _draw_combat_effects() -> void:
+	var font := ThemeDB.fallback_font
+
+	# マスドライバー弾頭
+	for ks in kinetic_slugs:
+		var p: Vector2 = ks["pos"]
+		draw_line(p - ks["vel"].normalized() * 18.0, p, Color(0.4, 0.95, 1.0, 0.8), 2.5)
+		draw_circle(p, 3.5, Color(1.0, 1.0, 1.0, 0.98))
+
+	# ダメージフロート数値（戦闘の爽快感演出）
+	for dn in damage_numbers:
+		var a: float = dn["life"] / dn["max_life"]
+		var c: Color = dn["col"]
+		c.a = a
+		draw_string(font, dn["pos"], dn["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, c)
+
+func _draw_boss_hud() -> void:
+	# 画面中央上部：敵性自己複製母艦・侵攻ウェーブボスHUD（Phase 4 RTS最終決戦演出）
+	var font := ThemeDB.fallback_font
+	var bx := 390.0
+	var by := 18.0
+	var bw := 500.0
+	var bh := 42.0
+
+	# カーボンフレーム
+	var border_c := Color(1.0, 0.9, 0.9, 0.95) if boss_hit_flash > 0.0 else Color(0.9, 0.25, 0.35, 0.85)
+	draw_rect(Rect2(bx, by, bw, bh), Color(0.04, 0.06, 0.1, 0.92))
+	draw_rect(Rect2(bx, by, bw, bh), border_c, false, 2.0 if boss_hit_flash > 0.0 else 1.5)
+
+	# ボステキスト
+	var t_sec := Time.get_ticks_msec() * 0.001
+	var blink := 0.7 + sin(t_sec * 6.0) * 0.3
+	draw_string(font, Vector2(bx + 12.0, by + 17.0), "⚠️ HOSTILE MOTHER-HIVE: APEX SWARM", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.35, 0.45, blink))
+	draw_string(font, Vector2(bx + 310.0, by + 17.0), "NEXT WAVE: 00:18 (128 SHIPS)", HORIZONTAL_ALIGNMENT_RIGHT, 180, 10, Color(1.0, 0.8, 0.3))
+
+	# シールド＆装甲HPバー
+	var bar_w := bw - 24.0
+	var bar_h := 12.0
+	var bar_x := bx + 12.0
+	var bar_y := by + 23.0
+
+	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.12, 0.15, 0.2))
+	# シールド残量（動的シールド連動）
+	var shield_ratio := clampf(boss_shield_hp / 100.0, 0.0, 1.0)
+	var shield_fill := bar_w * shield_ratio
+	var bar_c := Color(1.0, 0.85, 0.85) if boss_hit_flash > 0.0 else Color(0.95, 0.25, 0.35)
+	draw_rect(Rect2(bar_x, bar_y, shield_fill, bar_h), bar_c)
+	# 装甲目盛り
+	for i in range(1, 10):
+		var dx := bar_x + (bar_w / 10.0) * float(i)
+		draw_line(Vector2(dx, bar_y), Vector2(dx, bar_y + bar_h), Color(0.05, 0.08, 0.12, 0.6), 1.0)
+	draw_string(font, Vector2(bar_x + 8.0, bar_y + 10.0), "SHIELD INTEGRITY: " + str(int(boss_shield_hp)) + "%", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(1.0, 1.0, 1.0, 0.95))

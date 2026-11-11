@@ -14,13 +14,17 @@ enum Phase {
 	PHASE_4_ORBITAL_WAR = 4
 }
 
-# 資源データ
+# 資源データ（ゲーム開始時は最小限の孤独なサバイバルスタート）
 var resources := {
-	"iron": 30.0,
-	"copper": 20.0,
-	"silicon": 10.0,
+	"iron": 0.0,
+	"ore": 0.0,
+	"copper": 0.0,
+	"silicon": 0.0,
 	"titanium": 0.0,
 	"uranium": 0.0,
+	"nanites": 15.0,
+	"nano": 15.0,
+	"cargo": 0.0,
 	"energy": 100.0,
 	"max_energy": 100.0,
 	"fleet_fighters": 0,
@@ -40,6 +44,25 @@ var upgrades := {
 
 # 進行フェーズ
 var current_phase: int = Phase.PHASE_1_SURVIVAL
+
+# 建設進捗ステージ（インクリメンタル工場建設）
+# 0: 荒涼とした不毛の惑星（自機のみ、機械なし）
+# 1: 溶鉱炉の建設・点火（煙と炎）
+# 2: 物理物流網（地下コンベア＆イジェクター投擲砲）
+# 3: 大型3Dプリンター（完全稼働工場）
+# 4: 軌道ロケット打ち上げ（惑星軌道フェーズへ）
+# 5: 月面マスドライバー＆小惑星造船所（大艦隊RTSへ）
+var construction_stage: int = 0
+signal stage_changed(new_stage: int)
+
+# ステージごとの建設要件
+var stage_requirements := [
+	{"name": "SURFACE SMELTER", "ore": 30.0, "silicon": 10.0, "desc": "Construct Smelter for automatic metal refining."},
+	{"name": "CONVEYOR & EJECTOR", "ore": 80.0, "silicon": 40.0, "desc": "Deploy tunnel logistics & ballistic ore catapults."},
+	{"name": "DUAL 3D PRINTERS", "ore": 180.0, "silicon": 100.0, "nano": 50.0, "desc": "Assemble heavy gantry 3D nano-printers."},
+	{"name": "ORBITAL ROCKET", "ore": 400.0, "silicon": 200.0, "nano": 100.0, "desc": "Launch rocket into planetary orbit."},
+	{"name": "LUNAR MASS DRIVER", "silicon": 600.0, "titanium": 300.0, "nano": 200.0, "desc": "Construct mass driver & asteroid shipyard."}
+]
 
 # 敵脅威度・シグネチャ (0.0 ~ 100.0)
 var threat_level: float = 0.0
@@ -133,6 +156,70 @@ func get_upgrade_cost(upgrade_id: String, current_lvl: int) -> Dictionary:
 		"hull_plating":
 			return {"iron": int(25 * multiplier), "titanium": int(5 * (current_lvl - 1))}
 	return {"iron": 10}
+
+func can_build_next_stage() -> bool:
+	if construction_stage >= stage_requirements.size():
+		return false
+	var req: Dictionary = stage_requirements[construction_stage]
+	var current_ore: float = resources.get("ore", resources.get("iron", 0.0))
+	var current_si: float = resources.get("silicon", 0.0)
+	var current_nano: float = resources.get("nanites", resources.get("nano", 0.0))
+	var current_ti: float = resources.get("titanium", 0.0)
+	
+	if req.get("ore", 0.0) > current_ore:
+		return false
+	if req.get("silicon", 0.0) > current_si:
+		return false
+	if req.get("nano", 0.0) > current_nano:
+		return false
+	if req.get("titanium", 0.0) > current_ti:
+		return false
+	return true
+
+func build_next_stage() -> bool:
+	if not can_build_next_stage():
+		return false
+	var req: Dictionary = stage_requirements[construction_stage]
+	if req.has("ore"):
+		if resources.has("ore"): resources["ore"] -= req["ore"]
+		if resources.has("iron"): resources["iron"] -= req["ore"]
+	if req.has("silicon"):
+		resources["silicon"] -= req["silicon"]
+	if req.has("nano"):
+		if resources.has("nanites"): resources["nanites"] -= req["nano"]
+		if resources.has("nano"): resources["nano"] -= req["nano"]
+	if req.has("titanium"):
+		resources["titanium"] -= req["titanium"]
+
+	construction_stage += 1
+	stage_changed.emit(construction_stage)
+	resources_changed.emit()
+	play_sfx(SoundGenerator.create_build())
+
+	# ステージ進行に伴うフェーズ遷移
+	if construction_stage == 1:
+		unlocked_buildings["smelter"] = true
+	elif construction_stage == 2:
+		unlocked_buildings["conveyor"] = true
+		unlocked_buildings["ejector"] = true
+	elif construction_stage == 3:
+		unlocked_buildings["drill"] = true
+	elif construction_stage == 4:
+		set_phase(Phase.PHASE_3_INTERPLANETARY)
+	elif construction_stage >= 5:
+		set_phase(Phase.PHASE_4_ORBITAL_WAR)
+
+	return true
+
+func set_construction_stage(stage: int) -> void:
+	construction_stage = clampi(stage, 0, 5)
+	stage_changed.emit(construction_stage)
+	if construction_stage < 4:
+		set_phase(Phase.PHASE_1_SURVIVAL)
+	elif construction_stage == 4:
+		set_phase(Phase.PHASE_3_INTERPLANETARY)
+	elif construction_stage >= 5:
+		set_phase(Phase.PHASE_4_ORBITAL_WAR)
 
 func set_phase(new_phase: int) -> void:
 	if current_phase != new_phase:

@@ -129,6 +129,10 @@ func _setup_ui() -> void:
 
 	# 文字重複防止の連携
 	hud_system.tech_tree_screen = tech_tree_screen
+	hud_system.factory_view = factory_view
+	hud_system.planet_view = planet_view
+	hud_system.phase_jump_requested.connect(_jump_phase)
+	game_state.stage_changed.connect(factory_view.on_stage_built)
 
 func _process(delta: float) -> void:
 	if is_auto_test_mode:
@@ -139,11 +143,34 @@ func _process(delta: float) -> void:
 	_handle_camera(delta)
 
 func _handle_input(_delta: float) -> void:
+	if Input.is_physical_key_pressed(KEY_ESCAPE):
+		if hud_system != null and hud_system.is_settings_open:
+			hud_system.is_settings_open = false
+		elif tech_tree_screen != null and tech_tree_screen.visible:
+			tech_tree_screen.close()
+
+	if Input.is_physical_key_pressed(KEY_O):
+		if hud_system != null:
+			hud_system.is_settings_open = not hud_system.is_settings_open
+
 	if Input.is_physical_key_pressed(KEY_U):
 		if not tech_tree_screen.visible:
 			tech_tree_screen.open()
 		else:
 			tech_tree_screen.close()
+
+	if Input.is_physical_key_pressed(KEY_B):
+		if game_state != null and game_state.can_build_next_stage():
+			game_state.build_next_stage()
+			hud_system.show_toast("CONSTRUCTED NEXT STAGE!", 2.0)
+
+	if Input.is_physical_key_pressed(KEY_C):
+		# デバッグ採掘ブースト
+		if game_state != null:
+			game_state.add_resource("ore", 50.0)
+			game_state.add_resource("silicon", 30.0)
+			game_state.add_resource("nano", 20.0)
+			hud_system.show_toast("DEV CHEAT: +50 ORE / +30 SILICON / +20 NANO", 1.5)
 
 	if Input.is_physical_key_pressed(KEY_1):
 		_jump_phase(1)
@@ -193,20 +220,46 @@ func _process_auto_test(delta: float) -> void:
 	auto_test_timer += delta
 	match auto_test_step:
 		0:
-			# Step 0: 画像1（地表＆地下工場、3Dプリンター、イジェクター、溶鉱炉）
+			# Step 0: Stage 0 荒野のスタート地点（機械なし、未開岩肌、プローブ単独、タッチ操作UI）
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
 				_jump_phase(1)
+				game_state.set_construction_stage(0)
+				game_state.resources["ore"] = 0.0
+				game_state.resources["iron"] = 0.0
+				game_state.resources["silicon"] = 0.0
+				game_state.resources["nanites"] = 15.0
+				game_state.resources["nano"] = 15.0
+				factory_view.floating_texts.clear()
+				auto_test_substep = 1
+				auto_test_timer = 0.0
+			elif auto_test_substep == 1 and auto_test_timer > 0.8:
+				print("[TEST] Capturing Stage 0 Bare Planet view (bare crash site)...")
+				_capture_screenshot("capture_stage0_bare.png")
+				auto_test_step = 1
+				auto_test_substep = 0
+				auto_test_timer = 0.0
+		1:
+			# Step 1: Stage 3 工場完全稼働（画像1完全再現：3Dプリンター、溶鉱炉、イジェクター）
+			if auto_test_substep == 0:
+				tech_tree_screen.close()
+				_jump_phase(1)
+				game_state.set_construction_stage(3)
+				game_state.resources["ore"] = 480.0
+				game_state.resources["iron"] = 480.0
+				game_state.resources["silicon"] = 240.0
+				game_state.resources["nanites"] = 85.0
+				game_state.resources["nano"] = 85.0
 				auto_test_substep = 1
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Phase 1 Factory view (Ref: ref_factory.jpg)...")
 				_capture_screenshot("capture_phase1_factory.png")
-				auto_test_step = 1
+				auto_test_step = 2
 				auto_test_substep = 0
 				auto_test_timer = 0.0
-		1:
-			# Step 1: 画像2（3D Nano-Printer & Tech Tree全画面UI）
+		2:
+			# Step 2: 画像2（3D Nano-Printer & Tech Tree全画面UI）
 			if auto_test_substep == 0:
 				tech_tree_screen.open()
 				auto_test_substep = 1
@@ -214,36 +267,44 @@ func _process_auto_test(delta: float) -> void:
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Tech Tree UI view (Ref: ref_tech_tree.jpg)...")
 				_capture_screenshot("capture_phase2_techtree.png")
-				auto_test_step = 2
+				auto_test_step = 3
 				auto_test_substep = 0
 				auto_test_timer = 0.0
-		2:
-			# Step 2: 画像3（真円惑星全体、燃え盛るマグマコア、周回ロケット、四隅HUD）
+		3:
+			# Step 3: 画像3（真円惑星全体、燃え盛るマグマコア、周回ロケット、四隅HUD）
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
 				_jump_phase(3)
+				game_state.resources["ore"] = 1450.0
+				game_state.resources["silicon"] = 680.0
+				game_state.resources["nanites"] = 260.0
+				game_state.resources["fleet_fighters"] = 12
 				auto_test_substep = 1
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Planet Orbital view (Ref: ref_planet_orbit.jpg)...")
 				_capture_screenshot("capture_phase3_planet.png")
-				auto_test_step = 3
+				auto_test_step = 4
 				auto_test_substep = 0
 				auto_test_timer = 0.0
-		3:
-			# Step 3: 画像4（月面マスドライバー、小惑星要塞、4連巨大スラスター、ドローン艦隊戦）
+		4:
+			# Step 4: 画像4（月面マスドライバー、小惑星要塞、4連巨大スラスター、ドローン艦隊戦）
 			if auto_test_substep == 0:
 				tech_tree_screen.close()
 				_jump_phase(4)
+				game_state.resources["ore"] = 5800.0
+				game_state.resources["silicon"] = 3400.0
+				game_state.resources["nanites"] = 890.0
+				game_state.resources["fleet_fighters"] = 699
 				auto_test_substep = 1
 				auto_test_timer = 0.0
 			elif auto_test_substep == 1 and auto_test_timer > 0.8:
 				print("[TEST] Capturing Mass Driver & Asteroid view (Ref: ref_massdriver_asteroid.jpg)...")
 				_capture_screenshot("capture_phase4_asteroid.png")
-				auto_test_step = 4
+				auto_test_step = 5
 				auto_test_substep = 0
 				auto_test_timer = 0.0
-		4:
+		5:
 			if auto_test_timer > 0.5:
 				print("[TEST] Auto-test capture completed successfully.")
 				get_tree().quit(0)
