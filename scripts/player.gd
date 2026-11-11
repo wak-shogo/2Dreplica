@@ -24,6 +24,7 @@ var floating_texts: Array[Dictionary] = []
 
 # スラスター炎
 var is_thrusting: bool = false
+var is_retro_thrusting: bool = false
 var thruster_particles: Array[Dictionary] = []
 
 # モバイル・タッチ操作対応
@@ -68,6 +69,7 @@ func _handle_input(delta: float) -> void:
 		move_dir = clampf(touch_joystick_vector.x, -1.0, 1.0)
 		
 	is_thrusting = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_SPACE) or (touch_joystick_vector.y < -0.35)
+	is_retro_thrusting = Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S) or (touch_joystick_vector.y > 0.35)
 	
 	# スキャナートリガー (Rキー)
 	if Input.is_action_just_pressed("ui_accept") or Input.is_physical_key_pressed(KEY_R):
@@ -95,30 +97,60 @@ func _handle_input(delta: float) -> void:
 		velocity_vector = Vector2(-sin(surface_angle), cos(surface_angle)) * (move_dir * move_speed)
 		if move_dir != 0.0 and game_state != null:
 			game_state.record_move(delta)
+
+		# 地表からのジャンプ・離陸（W/SPACEまたは上スラスター）
+		if is_thrusting and game_state != null and game_state.resources["energy"] > 4.0:
+			is_on_planet_surface = false
+			var up_dir := (global_position - current_planet.global_position).normalized()
+			velocity_vector += up_dir * 220.0
+			game_state.resources["energy"] = maxf(0.0, game_state.resources["energy"] - 4.0)
+			game_state.play_sfx(SoundGenerator.create_thruster(0.2, 0.3))
 	else:
-		# 宇宙空間での姿勢制御（A/Dでトルクまたは左右噴射）
+		# 宇宙空間での姿勢制御（A/Dまたはジョイスティック横で軌道修正噴射）
 		if move_dir != 0.0 and current_planet != null:
 			var normal := (global_position - current_planet.global_position).normalized()
 			var tangent := Vector2(-normal.y, normal.x)
-			velocity_vector += tangent * move_dir * 120.0 * delta
+			velocity_vector += tangent * move_dir * 260.0 * delta
 			if game_state != null:
 				game_state.record_move(delta)
 
-	# スラスター噴射
-	if is_thrusting and game_state != null and game_state.resources["energy"] > 0.0:
+	# 飛行中の推進スラスター噴射（上昇）
+	if is_thrusting and not is_on_planet_surface and game_state != null and game_state.resources["energy"] > 0.0:
 		var thrust_power: float = base_thrust_power + (game_state.upgrades.get("thruster_force", 1) - 1) * 80.0
-		var thrust_dir := Vector2(0, -1).rotated(rotation) # 上向き
+		var thrust_dir := Vector2(0, -1).rotated(rotation) # 機首方向（天体外向き）
 		velocity_vector += thrust_dir * thrust_power * delta
 		game_state.resources["energy"] = maxf(0.0, game_state.resources["energy"] - 8.0 * delta)
-		is_on_planet_surface = false
 		
-		# スラスターパーティクル
+		# スラスターパーティクル（オレンジ炎）
 		var exhaust_pos := global_position - thrust_dir * 8.0
 		thruster_particles.append({
 			"pos": exhaust_pos,
-			"vel": -thrust_dir * randf_range(100.0, 200.0) + Vector2(randf_range(-20, 20), randf_range(-20, 20)),
+			"vel": -thrust_dir * randf_range(120.0, 240.0) + Vector2(randf_range(-20, 20), randf_range(-20, 20)),
 			"life": 0.25,
-			"max_life": 0.25
+			"max_life": 0.25,
+			"col": Color(1.0, 0.6, 0.2)
+		})
+	elif is_retro_thrusting and not is_on_planet_surface and current_planet != null and game_state != null and game_state.resources["energy"] > 0.0:
+		# 逆噴射・降下スラスター（下入力で天体へ急行・減速帰還！）
+		var to_planet := (current_planet.global_position - global_position).normalized()
+		var retro_power: float = base_thrust_power * 1.6 + (game_state.upgrades.get("thruster_force", 1) - 1) * 100.0
+		velocity_vector += to_planet * retro_power * delta
+		
+		# 上昇慣性の急速キャンセル（ブレーキ）
+		var outward_speed := velocity_vector.dot(-to_planet)
+		if outward_speed > 0.0:
+			velocity_vector -= (-to_planet) * outward_speed * minf(1.0, 6.0 * delta)
+			
+		game_state.resources["energy"] = maxf(0.0, game_state.resources["energy"] - 8.0 * delta)
+		
+		# 逆噴射パーティクル（前方ノズルから噴射される高輝度シアン・プラズマジェット）
+		var retro_pos := global_position - to_planet * 6.0
+		thruster_particles.append({
+			"pos": retro_pos,
+			"vel": -to_planet * randf_range(140.0, 260.0) + Vector2(randf_range(-25, 25), randf_range(-25, 25)),
+			"life": 0.22,
+			"max_life": 0.22,
+			"col": Color(0.2, 0.9, 1.0)
 		})
 	else:
 		# エネルギー自然回復
@@ -155,19 +187,37 @@ func _update_physics(delta: float) -> void:
 		# 天体方向への向き合わせ（飛行中）
 		var up_dir := (global_position - current_planet.global_position).normalized()
 		var target_rot := up_dir.angle() + PI * 0.5
-		rotation = lerp_angle(rotation, target_rot, delta * 6.0)
+		if is_retro_thrusting:
+			# 逆噴射中は天体に向かって機首を降下角度に傾ける
+			target_rot = (-up_dir).angle() - PI * 0.5
+		rotation = lerp_angle(rotation, target_rot, delta * 7.0)
 		
 		# 地表着地判定
 		var dist_to_center := (global_position - current_planet.global_position).length()
 		var cur_angle := (global_position - current_planet.global_position).angle()
 		var surf_r := current_planet.is_surface_walkable_at(cur_angle)
+		var to_planet := (current_planet.global_position - global_position).normalized()
 		
-		if dist_to_center <= surf_r + 6.0:
-			# 着地
-			is_on_planet_surface = true
-			surface_angle = cur_angle
-			global_position = current_planet.global_position + Vector2(cos(cur_angle), sin(cur_angle)) * (surf_r + 6.0)
-			velocity_vector = Vector2.ZERO
+		if dist_to_center <= surf_r + 8.0:
+			var inward_speed := velocity_vector.dot(to_planet)
+			if inward_speed >= -15.0 or dist_to_center <= surf_r + 4.0:
+				# 着地成功
+				is_on_planet_surface = true
+				surface_angle = cur_angle
+				global_position = current_planet.global_position + Vector2(cos(cur_angle), sin(cur_angle)) * (surf_r + 6.0)
+				velocity_vector = Vector2.ZERO
+				
+				# 着地インパクト演出
+				if inward_speed > 30.0 and game_state != null:
+					game_state.play_sfx(SoundGenerator.create_thud(0.12, 0.25))
+					for k in range(8):
+						thruster_particles.append({
+							"pos": global_position,
+							"vel": Vector2(randf_range(-70, 70), randf_range(-40, -10)).rotated(surface_angle + PI * 0.5),
+							"life": 0.25,
+							"max_life": 0.25,
+							"col": Color(0.7, 0.8, 0.9, 0.7)
+						})
 
 func _execute_mining(delta: float) -> void:
 	if current_planet == null or game_state == null:
@@ -238,11 +288,12 @@ func _update_particles(delta: float) -> void:
 			k += 1
 
 func _draw() -> void:
-	# スラスター炎
+	# スラスター炎・逆噴射・着地粉塵
 	for p in thruster_particles:
 		var alpha: float = clampf(p["life"] / p["max_life"], 0.0, 1.0)
-		var col := Color(1.0, 0.6, 0.2, alpha)
-		draw_circle(to_local(p["pos"]), 3.0 * alpha, col)
+		var base_c: Color = p.get("col", Color(1.0, 0.6, 0.2))
+		var col := Color(base_c.r, base_c.g, base_c.b, base_c.a * alpha)
+		draw_circle(to_local(p["pos"]), 3.5 * alpha, col)
 
 	# 掘削レーザービーム＆ターゲットレティクル
 	if is_mining:

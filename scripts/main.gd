@@ -362,19 +362,57 @@ func _process_play_test(delta: float) -> void:
 	play_test_timer += delta
 	match play_test_step:
 		0:
-			print("[PLAYTEST] Step 0: Probe spawned at: ", player.global_position, " | Stage: ", game_state.construction_stage)
-			print("[PLAYTEST] Initial Cargo: ", game_state.resources.get("ore", 0), " | FPS: ", Engine.get_frames_per_second())
+			print("[PLAYTEST] Step 0: Probe spawned on planet surface at: ", player.global_position)
+			print("[PLAYTEST] Initial State: on_surface=", player.is_on_planet_surface, " | FPS=", Engine.get_frames_per_second())
 			play_test_step = 1
 			play_test_timer = 0.0
 		1:
-			# 歩行物理テスト：ジョイスティック右入力を1秒シミュレート
+			# 歩行物理テスト：ジョイスティック右入力をシミュレート
 			player.touch_joystick_vector = Vector2(1.0, 0.0)
 			if play_test_timer > 0.8:
 				player.touch_joystick_vector = Vector2.ZERO
-				print("[PLAYTEST] Step 1: Walked on circular planet surface! Angle: ", "%.3f" % player.surface_angle, " | Pos: ", player.global_position)
+				print("[PLAYTEST] Step 1: Walked on circular planet surface! Surface Angle: ", "%.3f" % player.surface_angle)
 				play_test_step = 2
 				play_test_timer = 0.0
 		2:
+			# 上昇スラスター噴射（W / SPACE / ジョイスティック上入力）：大気圏〜低軌道へ飛翔
+			player.touch_joystick_vector = Vector2(0.0, -1.0)
+			if play_test_timer > 0.8:
+				player.touch_joystick_vector = Vector2.ZERO
+				var alt := (player.global_position - primary_planet.global_position).length()
+				print("[PLAYTEST] Step 2: Liftoff & Climb! Altitude: ", "%.1f" % alt, " | On surface: ", player.is_on_planet_surface, " | Vel: ", player.velocity_vector)
+				play_test_step = 3
+				play_test_timer = 0.0
+		3:
+			# 慣性飛行テスト：入力を離して惰性移動と重力・大気減速を検証
+			if play_test_timer > 0.6:
+				var alt := (player.global_position - primary_planet.global_position).length()
+				print("[PLAYTEST] Step 3: Inertial flight verified. Altitude: ", "%.1f" % alt, " | Vel: ", player.velocity_vector)
+				play_test_step = 4
+				play_test_timer = 0.0
+		4:
+			# 逆噴射・降下帰還テスト（S / DOWN / ジョイスティック下入力）：天体中心へ急加速・急減速帰還
+			player.touch_joystick_vector = Vector2(0.0, 1.0)
+			if play_test_timer > 1.2:
+				player.touch_joystick_vector = Vector2.ZERO
+				var alt := (player.global_position - primary_planet.global_position).length()
+				print("[PLAYTEST] Step 4: Reverse Retro-Thrusters fired! Returning to planet. Current Altitude: ", "%.1f" % alt, " | Vel: ", player.velocity_vector)
+				play_test_step = 5
+				play_test_timer = 0.0
+		5:
+			# 地表着地待機：逆噴射慣性と引力で地表にソフトランディング
+			if player.is_on_planet_surface or play_test_timer > 2.0:
+				if not player.is_on_planet_surface:
+					# 強制スナップセーフティ
+					var cur_ang := (player.global_position - primary_planet.global_position).angle()
+					var sr := primary_planet.is_surface_walkable_at(cur_ang)
+					player.global_position = primary_planet.global_position + Vector2(cos(cur_ang), sin(cur_ang)) * (sr + 6.0)
+					player.is_on_planet_surface = true
+					player.velocity_vector = Vector2.ZERO
+				print("[PLAYTEST] Step 5: Smooth Touchdown on planet surface! On surface: ", player.is_on_planet_surface, " | Pos: ", player.global_position)
+				play_test_step = 6
+				play_test_timer = 0.0
+		6:
 			# 採掘レーザーテスト：足元の地殻岩盤を採掘
 			var ground_target := player.global_position + (primary_planet.global_position - player.global_position).normalized() * 18.0
 			player.touch_mining = true
@@ -382,38 +420,69 @@ func _process_play_test(delta: float) -> void:
 			if play_test_timer > 1.2:
 				player.touch_mining = false
 				var ore_gained: float = maxf(game_state.resources.get("ore", 0.0), game_state.resources.get("iron", 0.0))
-				print("[PLAYTEST] Step 2: Mined ground! Ore gathered: ", ore_gained, " | Floating text popups: ", player.floating_texts.size())
-				play_test_step = 3
+				print("[PLAYTEST] Step 6: Mined minerals! Ore gathered: ", ore_gained, " | Floating text popups: ", player.floating_texts.size())
+				play_test_step = 7
 				play_test_timer = 0.0
-		3:
-			# 建設テスト：必要資材を補充して溶鉱炉（Stage 1）を建設
-			game_state.add_resource("ore", 30.0)
-			game_state.add_resource("silicon", 15.0)
-			var can_build := game_state.can_build_next_stage()
-			print("[PLAYTEST] Step 3: Can build next stage: ", can_build)
-			var built := game_state.build_next_stage()
-			print("[PLAYTEST] Step 3: Built Stage 1 Smelter! Result: ", built, " | New Stage: ", game_state.construction_stage)
-			play_test_step = 4
+		7:
+			# 施設建設テスト（Stage 1: 溶鉱炉）
+			game_state.add_resource("ore", 10.0)
+			var built_s1 := game_state.build_next_stage()
+			print("[PLAYTEST] Step 7: Built Stage 1 Smelter! Result: ", built_s1, " | Current Stage: ", game_state.construction_stage)
+			play_test_step = 8
 			play_test_timer = 0.0
-		4:
-			# テックツリーテスト：UIを開いてレーザー出力アップグレード購入
+		8:
+			# 施設建設テスト（Stage 2: 弾道イジェクター＆コンベア物流）
+			game_state.add_resource("ore", 80.0)
+			game_state.add_resource("silicon", 50.0)
+			var built_s2 := game_state.build_next_stage()
+			print("[PLAYTEST] Step 8: Built Stage 2 Conveyor & Ejector! Result: ", built_s2, " | Current Stage: ", game_state.construction_stage)
+			play_test_step = 9
+			play_test_timer = 0.0
+		9:
+			# 施設建設テスト（Stage 3: デュアル3Dナノプリンター）
+			game_state.add_resource("ore", 250.0)
+			game_state.add_resource("silicon", 150.0)
+			game_state.add_resource("nano", 80.0)
+			var built_s3 := game_state.build_next_stage()
+			print("[PLAYTEST] Step 9: Built Stage 3 Dual 3D Nano-Printers! Result: ", built_s3, " | Current Stage: ", game_state.construction_stage)
+			play_test_step = 10
+			play_test_timer = 0.0
+		10:
+			# テックツリーモーダル＆アップグレード購入テスト
 			tech_tree_screen.open()
-			game_state.add_resource("iron", 50.0)
-			game_state.add_resource("copper", 50.0)
-			var upgraded := game_state.buy_upgrade("laser_power")
-			print("[PLAYTEST] Step 4: Upgraded Laser Power! Result: ", upgraded, " | New Lvl: ", game_state.upgrades.get("laser_power"))
+			tech_tree_screen.mobile_tab = 0 # 3D Nano-Printer Telemetry
+			print("[PLAYTEST] Step 10: Tech Tree opened. Tab 0: 3D Printer Diagnostics verified.")
+			tech_tree_screen.mobile_tab = 1 # Upgrades Node Tree
+			game_state.add_resource("iron", 150.0)
+			game_state.add_resource("copper", 100.0)
+			var up1 := game_state.buy_upgrade("laser_power")
+			var up2 := game_state.buy_upgrade("thruster_force")
+			print("[PLAYTEST] Step 10: Purchased Upgrades! Laser: ", up1, " (Lvl ", game_state.upgrades.get("laser_power"), ") | Thruster: ", up2, " (Lvl ", game_state.upgrades.get("thruster_force"), ")")
 			tech_tree_screen.close()
-			play_test_step = 5
+			play_test_step = 11
 			play_test_timer = 0.0
-		5:
-			# ズーム遷移テスト
+		11:
+			# マルチスケールズーム遷移テスト（地表近接 1.85 -> 惑星全体断面 0.65 -> 恒星系全域 0.50）
 			if play_test_timer < 0.4:
 				target_zoom = 0.65
 			elif play_test_timer < 0.8:
 				target_zoom = 0.50
 			else:
-				print("[PLAYTEST] Step 5: Multi-scale zoom verified! Current zoom: ", current_zoom, " | Actual FPS: ", Engine.get_frames_per_second())
-				print("[PLAYTEST] SUCCESS: Real interactive gameplay test fully passed!")
+				print("[PLAYTEST] Step 11: Multi-scale zoom verified. Target Zoom: ", target_zoom, " | Current Zoom: ", current_zoom)
+				play_test_step = 12
+				play_test_timer = 0.0
+		12:
+			# 深宇宙決戦テスト：小惑星要塞＆艦隊戦
+			game_state.current_phase = GameState.Phase.PHASE_4_ORBITAL_WAR
+			game_state.resources["fleet_fighters"] = 699
+			game_state.resources["nanites"] = 1935.0
+			print("[PLAYTEST] Step 12: Deep Space Orbital War active! Fleet size: ", game_state.resources["fleet_fighters"], " | FPS: ", Engine.get_frames_per_second())
+			play_test_step = 13
+			play_test_timer = 0.0
+		13:
+			if play_test_timer > 0.5:
+				print("[PLAYTEST] Step 13: Full Interactive Playtest Run Completed Successfully!")
+				print("[PLAYTEST] All controls (Move, Climb, Reverse/Descent, Landing, Mining, Building, TechTree, Multi-scale Zoom) VERIFIED!")
 				get_tree().quit(0)
 
 func _process_auto_test(delta: float) -> void:

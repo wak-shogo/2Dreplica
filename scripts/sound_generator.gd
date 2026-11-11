@@ -116,3 +116,52 @@ static func create_build(duration: float = 0.12, volume: float = 0.3) -> AudioSt
 		
 	stream.data = data
 	return stream
+
+static func create_thud(duration: float = 0.15, volume: float = 0.35) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var num_samples := int(sample_rate * duration)
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	
+	var data := PackedByteArray()
+	data.resize(num_samples * 2)
+	
+	for i in range(num_samples):
+		var progress := float(i) / float(num_samples)
+		var freq := lerpf(140.0, 45.0, progress)
+		var t := float(i) / float(sample_rate)
+		var envelope := (1.0 - progress) * (1.0 - progress)
+		var val := sin(t * freq * TAU) * envelope * volume
+		var ival := clampi(int(val * 32767.0), -32768, 32767)
+		data.encode_s16(i * 2, ival)
+		
+	stream.data = data
+	return stream
+
+static func create_retro(duration: float = 0.2, volume: float = 0.28) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var num_samples := int(sample_rate * duration)
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	
+	var data := PackedByteArray()
+	data.resize(num_samples * 2)
+	
+	var last := 0.0
+	for i in range(num_samples):
+		var progress := float(i) / float(num_samples)
+		var noise := randf_range(-1.0, 1.0)
+		last = lerpf(last, noise, 0.45)
+		var t := float(i) / float(sample_rate)
+		var tone := sin(t * 880.0 * TAU) * 0.3
+		var envelope := sin(progress * PI)
+		var val := (last * 0.7 + tone) * envelope * volume
+		var ival := clampi(int(val * 32767.0), -32768, 32767)
+		data.encode_s16(i * 2, ival)
+		
+	stream.data = data
+	return stream

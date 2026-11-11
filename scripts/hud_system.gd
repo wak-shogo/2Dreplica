@@ -56,10 +56,12 @@ var btn_phase_rect := Rect2()
 var btn_settings_rect := Rect2()
 var btn_mine_rect := Rect2()
 var btn_thrust_rect := Rect2()
+var btn_retro_rect := Rect2()
 var btn_stage_skip_rect := Rect2()
 
 var is_mine_button_pressed := false
 var is_thrust_button_pressed := false
+var is_retro_button_pressed := false
 
 # 設定モーダル
 var is_settings_open := false
@@ -162,7 +164,9 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 		if opt_sfx.has_point(pos):
 			setting_sfx_level = (setting_sfx_level + 2) % 3
 			if game_state != null:
-				game_state.play_sfx(SoundGenerator.create_beep(660.0, 0.08, 0.2))
+				game_state.is_muted = (setting_sfx_level == 0)
+				if not game_state.is_muted:
+					game_state.play_sfx(SoundGenerator.create_beep(660.0, 0.08, 0.2))
 			show_toast("効果音音量: " + ("100%" if setting_sfx_level == 2 else ("50%" if setting_sfx_level == 1 else "ミュート")), 1.5)
 			return
 
@@ -259,6 +263,12 @@ func _handle_touch_down(pos: Vector2, touch_id: int) -> void:
 			player.touch_joystick_vector.y = -1.0
 		return
 
+	if btn_retro_rect.has_point(pos):
+		is_retro_button_pressed = true
+		if player != null:
+			player.touch_joystick_vector.y = 1.0
+		return
+
 	if btn_mine_rect.has_point(pos):
 		is_mine_button_pressed = true
 		if player != null:
@@ -290,6 +300,11 @@ func _handle_touch_up(_pos: Vector2, touch_id: int) -> void:
 
 	if is_thrust_button_pressed:
 		is_thrust_button_pressed = false
+		if player != null and not is_joystick_touching:
+			player.touch_joystick_vector.y = 0.0
+
+	if is_retro_button_pressed:
+		is_retro_button_pressed = false
 		if player != null and not is_joystick_touching:
 			player.touch_joystick_vector.y = 0.0
 
@@ -909,7 +924,7 @@ func _draw_control_guide_bar(w: float, h: float) -> void:
 	var guide_text := ""
 	match cur_p:
 		GameState.Phase.PHASE_1_SURVIVAL, GameState.Phase.PHASE_2_SURFACE_INDUSTRY:
-			guide_text = "移動: 左スティック | 採掘: 画面タップ | 建造: 下部ボタン" if is_portrait else "操作: [A/D] 移動 | [SPACE] 推進噴射 | [クリック/タップ] 採掘レーザー | 建造: 下部ボタン"
+			guide_text = "移動: 左スティック | 噴射: 上下ボタン | 採掘: タップ" if is_portrait else "操作: [A/D] 移動 | [W/SPACE] 推進上昇 | [S] 降下帰還 | [クリック] 採掘 | 建造: 下部"
 		GameState.Phase.PHASE_3_INTERPLANETARY:
 			guide_text = "軌道噴射: スティック | スキャン: 右ボタン | 視点切替: 上部" if is_portrait else "軌道航行: [A/D] 姿勢 | [SPACE] 軌道噴射 | [S] 惑星スキャナー | 視点切替"
 		GameState.Phase.PHASE_4_ORBITAL_WAR:
@@ -944,10 +959,11 @@ func _draw_touch_controls(w: float, h: float) -> void:
 		joystick_center = Vector2(170.0, h - 220.0)
 		joystick_radius = 80.0
 		var act_w := minf(260.0, w * 0.36)
-		var act_h := 72.0
-		btn_thrust_rect = Rect2(w - act_w - 16.0, h - 310.0, act_w, act_h)
-		btn_mine_rect = Rect2(w - act_w - 16.0, h - 220.0, act_w, act_h)
-		btn_build_rect = Rect2(12.0, h - 130.0, w - 24.0, 72.0)
+		var act_h := 62.0
+		btn_thrust_rect = Rect2(w - act_w - 16.0, h - 380.0, act_w, act_h)
+		btn_retro_rect = Rect2(w - act_w - 16.0, h - 310.0, act_w, act_h)
+		btn_mine_rect = Rect2(w - act_w - 16.0, h - 240.0, act_w, act_h)
+		btn_build_rect = Rect2(12.0, h - 140.0, w - 24.0, 72.0)
 
 		# 上部4大ボタン
 		var top_btn_w := (w - 36.0) / 4.0
@@ -961,7 +977,8 @@ func _draw_touch_controls(w: float, h: float) -> void:
 		joystick_center = Vector2(105.0, h - 140.0)
 		joystick_radius = 52.0
 		btn_mine_rect = Rect2(w - 145.0, h - 150.0, 130.0, 52.0)
-		btn_thrust_rect = Rect2(w - 285.0, h - 150.0, 130.0, 52.0)
+		btn_retro_rect = Rect2(w - 280.0, h - 150.0, 125.0, 52.0)
+		btn_thrust_rect = Rect2(w - 415.0, h - 150.0, 125.0, 52.0)
 		btn_build_rect = Rect2((w - 540.0) * 0.5, h - 72.0, 540.0, 42.0)
 		var top_y := 125.0
 		btn_tutorial_rect = Rect2(w - 470.0, top_y, 105.0, 32.0)
@@ -992,29 +1009,40 @@ func _draw_touch_controls(w: float, h: float) -> void:
 
 	# 2. 右下タッチアクションボタン
 	var btn1_text := "採掘レーザー"
-	var btn2_text := "スラスター噴射"
+	var btn2_text := "推進上昇 ▲"
+	var btn3_text := "降下帰還 ▼"
 	var btn1_col := Color(1.0, 0.85, 0.3, 0.95) if is_mine_button_pressed else Color(0.2, 0.65, 0.85, 0.85)
 	var btn2_col := Color(1.0, 0.6, 0.2, 0.95) if is_thrust_button_pressed else Color(0.3, 0.7, 0.9, 0.85)
+	var btn3_col := Color(0.2, 0.95, 1.0, 0.95) if is_retro_button_pressed else Color(0.25, 0.6, 0.85, 0.85)
 
 	match cur_p:
 		GameState.Phase.PHASE_3_INTERPLANETARY:
 			btn1_text = "探査スキャン"
-			btn2_text = "軌道加速噴射"
+			btn2_text = "軌道加速 ▲"
+			btn3_text = "減速降下 ▼"
 			btn1_col = Color(0.4, 0.9, 1.0, 0.9)
 			btn2_col = Color(1.0, 0.7, 0.3, 0.9)
 		GameState.Phase.PHASE_4_ORBITAL_WAR:
 			btn1_text = "弾頭射出"
 			btn2_text = "艦隊出撃"
+			btn3_text = "防衛展開"
 			btn1_col = Color(0.3, 0.95, 1.0, 0.95)
 			btn2_col = Color(1.0, 0.5, 0.8, 0.95)
 
+	# 採掘ボタン
 	draw_rect(btn_mine_rect, Color(0.04, 0.08, 0.14, 0.88))
 	draw_rect(btn_mine_rect, btn1_col, false, 2.0 if is_portrait else 1.8)
-	draw_string(use_font, Vector2(btn_mine_rect.position.x, btn_mine_rect.position.y + (44 if is_portrait else 32)), btn1_text, HORIZONTAL_ALIGNMENT_CENTER, btn_mine_rect.size.x, 20 if is_portrait else 15, btn1_col)
+	draw_string(use_font, Vector2(btn_mine_rect.position.x, btn_mine_rect.position.y + (40 if is_portrait else 32)), btn1_text, HORIZONTAL_ALIGNMENT_CENTER, btn_mine_rect.size.x, 18 if is_portrait else 15, btn1_col)
 
+	# 推進上昇ボタン
 	draw_rect(btn_thrust_rect, Color(0.04, 0.08, 0.14, 0.88))
 	draw_rect(btn_thrust_rect, btn2_col, false, 2.0 if is_portrait else 1.8)
-	draw_string(use_font, Vector2(btn_thrust_rect.position.x, btn_thrust_rect.position.y + (44 if is_portrait else 32)), btn2_text, HORIZONTAL_ALIGNMENT_CENTER, btn_thrust_rect.size.x, 20 if is_portrait else 15, btn2_col)
+	draw_string(use_font, Vector2(btn_thrust_rect.position.x, btn_thrust_rect.position.y + (40 if is_portrait else 32)), btn2_text, HORIZONTAL_ALIGNMENT_CENTER, btn_thrust_rect.size.x, 18 if is_portrait else 15, btn2_col)
+
+	# 降下帰還ボタン
+	draw_rect(btn_retro_rect, Color(0.04, 0.08, 0.14, 0.88))
+	draw_rect(btn_retro_rect, btn3_col, false, 2.0 if is_portrait else 1.8)
+	draw_string(use_font, Vector2(btn_retro_rect.position.x, btn_retro_rect.position.y + (40 if is_portrait else 32)), btn3_text, HORIZONTAL_ALIGNMENT_CENTER, btn_retro_rect.size.x, 18 if is_portrait else 15, btn3_col)
 
 	# 3. 画面下部：中央建設・状況バー
 	if cur_p in [GameState.Phase.PHASE_1_SURVIVAL, GameState.Phase.PHASE_2_SURFACE_INDUSTRY]:

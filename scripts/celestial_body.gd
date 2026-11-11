@@ -14,7 +14,7 @@ enum BodyType {
 @export var base_radius: float = 560.0
 @export var core_radius: float = 200.0
 @export var atmosphere_radius: float = 950.0
-@export var gravity_constant: float = 420000.0
+@export var gravity_constant: float = 58000000.0
 @export var atmosphere_drag: float = 0.4
 @export var orbit_parent: Node2D = null
 @export var orbit_distance: float = 0.0

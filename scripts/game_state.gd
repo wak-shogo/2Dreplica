@@ -99,6 +99,7 @@ var unlocked_buildings := {
 # サウンドプレイヤーノード
 var audio_players: Array[AudioStreamPlayer] = []
 var next_audio_index := 0
+var is_muted: bool = false
 
 func _init() -> void:
 	pass
@@ -111,7 +112,7 @@ func setup_audio(parent: Node) -> void:
 		audio_players.append(p)
 
 func play_sfx(stream: AudioStreamWAV, volume_db: float = 0.0) -> void:
-	if audio_players.is_empty():
+	if is_muted or audio_players.is_empty():
 		return
 	var player = audio_players[next_audio_index]
 	next_audio_index = (next_audio_index + 1) % audio_players.size()
